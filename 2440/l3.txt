@@ -1,0 +1,78 @@
+
+static void WriteL3(U8 data,U8 address) 
+
+{ 
+
+       int i,j; 
+
+       if(address == 1) 
+
+              rGPBDAT = rGPBDAT & ~(L3D | L3M | L3C) | L3C;        //L3D=L, L3M=L( 地址模式 ), L3C=H 
+
+       else 
+
+              rGPBDAT = rGPBDAT & ~(L3D | L3M | L3C) | (L3C | L3M);          //L3M=H( 数据传输模式 )  
+
+       for(i=0;i<10;i++) 
+
+              ;             // 等待一段时间 
+
+       
+
+       // 并行数据转串行数据输出，以低位在前、高位在后的顺序 
+
+       for(i=0;i<8;i++)     
+
+       { 
+
+              if(data & 0x1)                      // H 
+
+              { 
+
+                     rGPBDAT &= ~L3C;            //L3C=L 
+
+                     rGPBDAT |= L3D;                //L3D=H             
+
+                     for(j=0;j<5;j++) 
+
+;                    // 等待一段时间 
+
+                     rGPBDAT |= L3C;                //L3C=H 
+
+                     rGPBDAT |= L3D;                //L3D=H 
+
+                     for(j=0;j<5;j++) 
+
+;                    // 等待一段时间 
+
+               } 
+
+              else                       // L 
+
+              { 
+
+                     rGPBDAT &= ~L3C;            //L3C=L 
+
+                     rGPBDAT &= ~L3D;            //L3D=L 
+
+                     for(j=0;j<5;j++) 
+
+;                    // 等待一段时间 
+
+                     rGPBDAT |= L3C;                //L3C=H 
+
+                     rGPBDAT &= ~L3D;            //L3D=L 
+
+                     for(j=0;j<5;j++) 
+
+;                    // 等待一段时间            
+
+              } 
+
+              data >>= 1; 
+
+       } 
+
+       rGPBDAT = rGPBDAT & ~(L3D | L3M | L3C) | (L3C | L3M);          //L3M=H,L3C=H 
+
+} 

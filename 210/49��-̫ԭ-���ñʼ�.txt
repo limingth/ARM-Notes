@@ -1,0 +1,728 @@
+课堂笔记
+=========
+
+# 环境搭建
+## 分组
+	1-7组
+	1组：许涛
+	2组：刘国梁
+	3组：柴双越
+	4组：陈洪杨
+	5组：韩越
+	6组：王道胜
+	7组：兰海龙
+	8组：金振山
+	9组：逯志立
+
+## ARM 开发板硬件平台
+芯片识别
+	board:	tiny210 / top6410
+	CPU:	S5PV210 / S3C6410	(封装/FBGA)
+	MEM:	K4T1G08 / 
+	FLASH:	K9F2G08 / 
+	NET:	DM9000  / 
+	AUDIO:	WM8960  /
+	UART: 	MAX3232 / 
+
+外设识别
+	reset键
+	key键/home/back/menu
+	串口
+	网口
+	USB口
+	SD卡
+	CAMERA接口
+	MIC/HEARPHONE
+	AV口
+	启动跳线: NAND-SDboot
+	可变电阻: ADC
+	LCD接口: 外接LCD
+	
+## 硬件原理图和芯片数据手册
+推荐使用 FoxReader 福昕阅读器来打开 PDF 文档
+	1. Ctrl + 放大  Ctrl - 缩小  Ctrl 滚轮也可以
+	2. Ctrl + F 查找
+	3. Ctrl + Shift + N 跳转
+	4. Ctrl + TAB 切换文档
+	
+### Schematic (硬件原理图)
+#### CORE board
+	CPU:	S5PV210 - 25x25 584 ball FBGA 
+	MEM:	K4T1G08 - 60 ball FBGA 
+	FLASH:	K9F2G08 - 48 pin TSOP1
+	RESET: 	MAX811 
+	HDMI:	mini HDMI
+	LED:	LED1-4
+
+#### BOTTOM board(mother)
+	NET:	DM9000  - 48pin	(HR911105A)
+	AUDIO:	WM8960  - 32pin
+	UART: 	MAX3232 - 16pin 
+	E2PROM:	AT24LC04 - 8pin
+		
+	D 数据线
+	A 地址线
+	RTC:
+	BUZZER:
+	COM0-3 4个
+	KEY1-8 8个
+	AD-Convert
+	TINY1A-1C 3排
+	
+### Datasheet (芯片数据手册)
+	
+## 开发工具和测试环境	
+### 安装工具
+	ADS1.2.zip 解压之后 setup.exe 安装
+	注意： 	1) Full 安装, 不是 Typical
+			2) Install Licence, 在解压后的 crack\licence.dat
+	
+	开始 -> 运行 -> cmd 命令打开一个窗口
+	
+	C:>path
+	是否有 C:\Program Files\ARM\ADSv1_2\bin 
+	
+	如果是 path 问题，需要添加 路径到 path 环境变量
+	我的电脑 -> 鼠标右键属性 -> 高级 -> 环境变量 -> 系统变量下面添加
+		(注意用分号间隔; 原来的不要删除掉，把 C:\Program Files\ARM\ADSv1_2\bin 添加到最后)
+	
+	C:>armcc 
+	是否有这个命令，这一点最重要，如果成功则会输出
+	ARM C Compiler, ADS1.2 [Build 805]
+	
+	Usage:         armcc [options] file1 file2 ... filen
+	Main options:
+	xxxxx
+	
+	四大工具
+		armasm
+		armcc
+		armlink
+		fromelf
+	
+### 测试环境
+	连接开发板，需要2根线：
+	1) 电源，注意电源
+	2) 串口线，接COM0
+	
+	确认开发板硬件良好
+	1) 电源灯亮，前提是电源开关拨到 ON
+	2) 串口有输出，前提是COM0连接超级终端,115200, 8N1
+	(如果是tiny210板子，需要把开关拨到SD卡启动，重启)
+
+	开始 -> 运行 -> hypertrm 命令	
+	
+	www.lumit.org ==> limingth.github.com
+
+	通过命令测试 - 已经可以运行 bootloader (uboot)	
+		md      - memory display
+		mw      - memory write (fill)
+		
+	0x0
+	0x21000000 - tiny210
+	0x50000000 - top6410
+	
+	90 80 8F E2 -> E2 8F 80 90 Little Endian 小端
+	
+	E1 A0 00 01 -> mov r0, r1
+	E1 A0 40 05 -> mov r4, r5
+
+## 开发工具链详解
+	C程序的编译连接
+	armcc main.c -> axf (编译+链接)
+	armcc -c main.c -> .o (只编译+不链接)
+	
+	C与汇编的混合编程
+	armasm start.s
+	armcc -c main.c
+	armlink -first start.o
+			-entry begin
+			start.o main.o
+			-o demo.axf
+	
+## 基本开发流程
+	串口输出helloworld为例：
+	make.exe <-- nmake.exe (visual studio)
+		cygwin.dll + make ported from linux]
+		
+	Why main to mymain ?	
+		- How to get 16 byte bin?	
+	1) minize size
+	2) speed up
+		* remove printf
+		* main -> mymain
+		* start.s -> b mymain
+		* import mymain in start.s
+		* -first start.o
+	why must start.s?
+		* in asm -> r0...r15
+		* in main.c too many functions
+
+## demo 	
+		printf("hello\n");
+		\n -> 0xA
+		\r -> 0xD (Enter键)
+	0xE2900020 (tiny210)
+	0x7F005020 (top6410)
+
+	新网络共享 \\192.168.1.122
+	
+	
+# 芯片手册导读
+
+
+# GPIO 控制器	
+	输出设备
+		4 leds
+		1 buzzer
+	
+	输入设备
+		8 keys
+		
+	硬件连接
+		核心板 - 4led 的硬件连接
+	tiny210
+		LED1 - GPJ2_0
+		GPJ2CON -  	0xE0200280
+		GPJ2CON[0]   [3:0]   	0000 
+		0000 = Input     	0001 = Output 
+		0010 = MSM_DATA[0] 	0011 = KP_COL[1] 
+		0100 = CF_DATA[0] 	0101 = MHL_D7 
+		0110 ~ 1110 = Reserved 	1111 = GPJ2_INT[0] 
+		
+		GPJ2DAT[7:0] 	 0xE0200284
+			
+	top6410
+		LED1 - GPL13
+		GPLCON1  - 	0x7F008814 		
+		GPL13 [23:20] 	0010 
+			0000 = Input   0001 = Output  
+			0010 = Host I/F DATA[16] 0011 = Ext. Interrupt [21]  
+			0100 = Reserved  0101 = Reserved 
+			0110 = Reserved  0111 = Reserved 
+			
+		GPLDAT 0x7F008818 
+		
+	tiny210:
+		mw 0xe0200280 0x1		
+		mw 0xe0200284 0x1/0x0  		(on/off)
+	top6410:	
+		mw 0x7F008814 0x100000
+		mw 0x7F008818 0x2000/0x0	(on/off)
+	
+	问题： 不设置 CON 寄存器，直接设置 DAT 寄存器，能否把灯点亮？
+	解答： 是不行的，CON 设为输出是必要条件。
+	
+	问题： 不设置 DAT 寄存器，直接设置 CON 寄存器，能否把灯点亮/灭？
+	解答： 可能是可以的。前提是默认输出0的时候，灯是亮的。但是这种做法不推荐。
+	
+## GPIO 驱动代码编写
+
+### 汇编实现
+	ldr r1, =0xe0200280
+	伪指令 -> 2 个 4 字节 = 8字节
+		-> 1 个 4字节 是 LDR 指令
+		-> 1 个 4字节 是 32bit 的数据
+		
+	delay 的子函数实现
+	
+
+### 汇编和C混合编程实现
+	
+	K1 按键 XEINT16 -> GPH2_0
+	
+	GPH2CON
+	
+	top6410
+		GPNCON	0x7F008830
+		GPNDAT	0x7F008834		( 27 <-> 26 )
+		
+	uboot> md 0x7F008830		; MENU = K2
+	按住/松开 Menu, 观察 0x7F008834 地址的值的变换
+	
+
+课堂提问
+========
+#1 ARM 开发工具是什么，用法上有何注意要点？
+	参考在线教材： http://www.lumit.org/LASO/zh/chp1-4.html
+	ADS 
+	CLI: command line interface
+	Install 
+		path (ADSv1_2\bin\)
+		licence (crack\licence.dat)
+	Program
+		armcc C编译器
+			.c -> .o
+			-c 生成.o （只编译不连接）
+				main 函数问题
+				return 0 问题
+		armasm 汇编器
+			.s -> .o
+				
+		armlink 连接器
+			.o -> .axf
+			-first
+			-ro-base
+			-entry
+		fromelf 生成bin工具
+			-bin 生成bin
+			-c 反汇编			
+	Run	
+		loadb 加载
+		go 0x21000000 运行
+	
+	
+#2 从硬件原理图上能够得到什么信息？
+	有多少个芯片，芯片名称，大致管脚数目
+	有哪些外设，外设的接口（接插件）引脚，引脚数目
+	管脚与外设之间的连接关系
+	哪些管脚是不连接 NC (no connect)
+	哪些管脚是低有效 nCS (Chip Select)
+	输入晶振 (24Mhz) -> cpu频率 (Mhz)
+
+#3 芯片的数据手册的结构是怎样的？如何读？
+	OverView 组成模块
+	Bus 总线
+	System 系统组成
+		GPIO 控制器 (RxD/TxD, VSYNC/HSYNC)
+		CLOCK 时钟 (dram, uart, usb, IIS, LCD)
+	Memory 存储管理
+		Memory Map 存储映射
+		iRAM, iROM
+		DRAM Controller
+		Nor/Nand Flash		
+	Controller 控制器
+		pin 芯片引脚
+		SFR 特殊功能寄存器 (地址, 默认值, 位域, 描述)
+
+	如何读
+	Overview -> Block Diagram -> ARM Core + Peripheral
+	Pin Assignment (Pin Number+Pin Name+Pin Description)
+	System -> GPIO (Mux Functions) -> Clock 
+	Controllers -> UART Controllers -> Mem/Flash
+	
+#4 LED 灯驱动程序是怎样写出来的？
+	硬件原理图 -> output 1/0 (on/off)
+	-> 核心板的连接 (GPX) -> 引脚pin
+	芯片数据手册 -> 引脚归pin Group -> GPXCON (寄存器)
+	SFR -> SFR Addr -> Bit(s)-Field -> Settings (value)
+	-> GPXDAT (数据) -> 1/0 (on/off)
+	
+	宏定义 -> 2组括号, volatile, unsigned, int */char *
+	( main 的问题, 汇编和C混合编程 )
+	写1 : 或操作, |= 1<<7 | 1<<8 | 1<<9;		(n:0-31)
+	写0 : 与操作, &= ~(1<<7 | 1<<8 | 1<<9); 	(n:0-31)
+
+CLOCK 时钟管理
+===============
+#1 PLL 锁相环
+	PLLCON
+
+#2 DIV 分频器
+	CLKDIV
+
+#3 Mux 二路选通器
+	CLKSRC
+	
+#4 ARMCLK 的产生
+	Q1: OM[0] = 0, SRC->XXTI (24Mhz)	硬件连线
+	Q2: APLLCON (24M->1000M)	0xE0100100 => 0xa07d0301
+		Fout = Fin * MDIV / (PDIV * 2 ^ SDIV-1)
+				= 24M * 0x7d / (3 * 2^0)
+				= 24M * 125 / (3*1) = 1000M
+	Q3: CLK_SRC0	0xE0100200 => 0x10001111
+		bit[0]=1 	MUXPLL = 1, Fout_APLL
+	Q4: CLK_SRC0	0xE0100200 => 0x10001111
+		bit[16]=0 	Fout_APLL = 1G
+	Q5: CLK_DIV0	Address = 0xE0100300 => 0x14131440
+		APLL_RATIO  [2:0] 	n=0+1	
+		ARMCLK = Fout_APLL/n = 1G/1 = 1Ghz
+		
+#5 PCLK_PSYS 的产生
+	PSYS domain -> PCLK(66M) vs HCLK(133M) 
+	UART 的时钟发生
+		参考： http://www.lumit.org/LASO/zh/chp4-4.html
+		
+	UART 66M -> 115200bps
+		 33M ->  57600bps
+		 
+	DIV_PCLKP: CLK_DIV0, 0xE0100300: 34131440 [30:28]=> 011 = /4
+	# md 0xe0100300 0x34131440
+	# 此时波特率修改为 57600 ，因此需要修改串口的波特率设置，否则就是乱码
+	(关闭串口 -> 属性 -> bsp:57600 -> 确定)
+	
+	top6410:
+		APLL_CON 0x7E00_F00C	=> 0xc1900301
+		
+		CLK_DIV0  0x7E00_F020	=> 0x01043510
+		
+		OTHERS 0x7E00_F900 		=> 0x00008FFE
+		
+		MPLL_CON 0x7E00_F010	=> 0xc10a0301
+			266 * 12M / (3*2^1) = 532Mhz
+
+		CLK_DIV0  0x7E00_F020	=> 0x01043510
+			HCLKX2_RATIO [11:9] 	0101
+			HCLKX2 = HCLKX2IN / (HCLKX2_RATIO + 1) = 532/2 = 266 
+			
+			PCLK_RATIO 	[15:12]		0011 = 3
+			PCLK = HCLKX2 / (PCLK_RATIO + 1) = 266 / 4 = 66M 
+
+#6 Clock 时钟的知识点总结
+	
+	时钟管理单元 CMU 
+		MSYS Domain
+			MSYS (Cortex A8, DRAM)					
+		DSYS Domain
+			DSYS (JPEG, IIC_HDMI)
+		PSYS Domain
+			PSYS (JTAG, NandFlash, USB, IIS, AC97, IIC, PWM Timer, RTC)	
+		
+		几点结论：
+			ARMCLK 进行分频可以得到 HCLK_MSYS, PCLK_MSYS
+			不同 domain 域之间，输出频率的关系 PCLK = HCLK / 2
+		
+	时钟发生器 Clock Generator
+		锁相环 PLL (Phase-Locked Loop)
+			APLL, MPLL, EPLL, VPLL
+			倍频公式 Fout = Fin * M/(P * 2^S)
+			Fout_mpll / Fin_mpll
+			
+		分频器 Divider
+			1-2-4-8-16 分频 divider
+			Div_out = Div_in / (DIVN + 1)
+			DIV_PCLKP	DIV_HCLKP
+			
+		二路选通器 Mux				
+			OM 时钟源选择
+	
+	输入时钟	
+		X1: XXTI/XXTO 24Mhz
+		X2: XusbXTI 24Mhz
+		X3: XhdmiXTI 24Mhz
+		X4: XrtcXTI 32.768khz
+		24Mhz	12Mhz	常用输入频率		
+	输出时钟	
+		ARMCLK 			(1Ghz)
+		HCLKM / PCLKM	(200Mhz / 100Mhz)
+		HCLKD / PCLKD	(166Mhz / 83Mhz)
+		HCLKP / PCLKP	(133Mhz / 66Mhz)
+		记住 100Mhz = 10ns
+		
+	Clock 时钟特殊功能寄存器
+		PLL_CON - APLL_CON			
+		CLK_SRC
+		CLK_DIVn
+	
+	经验总结
+		PLL Sel 决定用或者不用 PLL 锁相环的输出时钟
+		串口的时钟输入，采用 MPLL 的输出，但是也可以用 APLL 的输出
+		时钟输出的图表，可以从后往前分析
+		24Mhz 时钟的选择 是因为 iROM 是采用 24Mhz 时钟 (P354)
+	
+		搜索芯片手册的时候，通过在图标的名字，DIV_HCKLP  DIVHCLKP , HCLKP
+		时钟的输出都可以通过软件来控制，输出主频越高，耗电量越高
+		写程序修改 波特率 改为 57600 来测试 PCLK 的设置是否成功
+		
+#5 串口驱动
+============
+
+115200 bit per second
+
+1bit = 8.6 * 10^(-6) = 8.6 微秒
+
+1byte data = 8.6 * 10bit = 86 微秒
+
+
+66M / (DIV+1) = 115200*16
+
+66M/(115200*16) - 1 = DIV
+
+
+#6 SDRAM 驱动
+
+SRAM vs SDRAM
+0. no drive code vs Must drive before using
+1. Static vs Synchronous Dynamic
+2. Small storage(KB) vs Large storage(MB)
+3. Very Fast(CACHE) vs Fast(Storage)
+4. High Price vs Low Price
+5. 晶体管 vs 电容
+
+## SDRAM 硬件连接
+
+地址 8banks * 16M/bank * 8bit(data)
+数据 8bits * chips
+
+2^14 根 = 16K (128M = 2^27 27根)
+
+行列地址复用   14 + 14 = 28 根 2^28 + BA0/1/2 = 2^31
+
+128M -> 27根 - 3根 = 24根 = 14 + 10
+
+SDRAM 数据手册
+1. how many banks (BA0, BA1, BA2)
+2. how many rows (RA?)
+3. how many columns (CA?)
+4. how many data bits (D0-D7, D0-D15)
+
+29根地址线 (A0-A28)
+	A28,A27,A26 : BA2,BA1,BA0
+	A25-A12: 行地址 14根
+	A11-A2: 列地址 10根
+	A1, A0, - GND (按字4bytes访问)
+		A1,A0   (按字节1bytes访问)
+		0  0
+		0  1  (先按字访问，取得4字节
+				然后根据 A1-A0 组合来进行移位)
+				右移 >> (0b	)*8bit 
+
+地址线	Xm1ADDR0-Xm1ADDR13
+		Xm1BA0, Xm1BA1, Xm1CSn1/BA2
+	数据线	Xm1DATA0-Xm1DATA31
+	控制线	Xm1CSn0, Xm1RASn, Xm1CASn	
+	
+	A31,A30,A29 : 001			-> Xm1CSn0
+	A28,A27,A26 : BA2,BA1,BA0	-> Xm1BA0, Xm1BA1, Xm1BA2
+	A25-A12: 行地址 14根		-> Xm1ADDR0-Xm1ADDR13	(Xm1RASn)
+	A11-A2: 列地址 10根			-> Xm1ADDR0-Xm1ADDR9	(Xm1CASn)
+	read Data
+	
+	SDRAM的基本读操作需要控制线和地址线相配合地发出一系列命令来完成。
+	先发出BANK激活命令（ACTIVE），
+	并锁存相应的BANK地址（BA0、BA1给出）和行地址（A0～A12给出）。
+	BANK激活命令后必须等待大于tRCD(SDRAM的RAS到CAS的延迟指标)时间后，
+	发出读命令字。CL（CAS延迟值）个工作时钟后，读出数据依次出现在数据总线上。
+	在读操作的最后，要向SDRAM发出预充电（PRECHARGE）命令，以关闭已经激活的页。
+	等待tRP时间（PRECHARGE）命令，以关闭已经激活的页。
+	等待tRP时间（PRECHAREG命令后，相隔tRP时间，才可再次访问该行）后，
+	可以开始下一次的读、写操作。
+	
+	SDRAM的读操作只有突发模式（Burst Mode），突发长度为1、2、4、8可选。
+
+
+tRCD: RAS->CAS 延迟 delay
+tRP: PRECHARGE
+
+uboot for tiny210 代码仓库
+https://gitorious.org/opens4tiny210/u-boot/trees/uboot_for_tiny210_ver2.2/tiny210-u-boot-version2.1
+
+mem_setup.S 
+tiny210.h	
+
+DMC0_MEMCONFIG_0
+DMC_MEMCONFIG0
+
+
+#6 NandFlash驱动
+================
+2G08 	256MB 字节 * 1 chip
+
+没有地址线
+没有数据线
+只有 IO 线 (地址数据共同复用8根 IO 线)
+1. 256M -> 2^28 28根地址有关
+	分多次传送 (至少4次，具体实现要查NandFlash芯片手册)
+2. 数据一次只有8bit
+3. 结论: 对于NandFlash来说，地址也是数据
+		在IO线上传送的，可能是地址信息，也可能是数据信息
+		用 选通信号 来区分 IO 线上的属性
+			1. Addr
+			2. Data
+			3. Cmmd
+
+控制信号	see P8 pdf
+	nCS(nCE)	片选
+	R/nB		Ready/not Busy
+	nWP 	写保护
+	ALE - Addr
+	CLE - Cmmd (read, program, erase...) see P10 pdf
+
+	cpu
+		Xm0DATA[0-7]
+		Xm0FWEn			
+		Xm0FCLE
+		Xm0FALE
+		NFCSn0
+		
+## NandFlash 的管脚复用
+see 210.pdf P40
+	
+	Xm0FCLE  MP0_3[0]  NF_CLE
+	
+MP0_3 Control Register (MP0_3CON, R/W, Address = 0xE020_0320) 
+		
+	MP0_3CON
+	uboot 启动后，已经设置好了。
+	0xe0200320: 22222222
+	
+## NandFlash 的时序图	
+	See K9F2G08.pdf P19
+	
+	1page = 2K (+64)
+	1block = 64pages
+	1device = 2048blocks
+			= 2K * 64 * 2K = 256M	= 28根 =A0-A27
+	
+## NandFlash 内部控制器
+
+
+
+## readpage 读页的流程
+
+	mw 0xb0e00000 0x00006552
+	mw 0xb0e00004 0x00c100c5
+	mw 0xb0e00008 0x00
+	mw 0xb0e0000c 0x00
+	mw 0xb0e0000c 0x00
+	mw 0xb0e0000c 0x00
+	mw 0xb0e0000c 0x00
+	mw 0xb0e0000c 0x00
+	mw 0xb0e00008 0x30
+	md 0xb0e00000	
+	
+	-> 00004000 ea000019 ea000037 0000f0f4
+			
+	
+	1. 确保开发板自身用 nand 启动，可以进入 linux
+	2. 确保 Flash 读数据接口成功，成功的标识是前16个字节和 superboot.bin 
+	3. 运行 go 0x21000000 之前，确保用 nand 跳线来启动，这样才能进入linux
+	
+#8 异常处理
+============
+PC 跳转到 0x8 之后，第一个问题是如何返回？	
+	
+	如何返回	1. 地址的返回 	mov pc, lr
+				2. 模式的返回	movs pc, lr
+	
+	mov pc, lr	[0xe1a0f00e]   
+	movs pc, lr	[0xe1b0f00e]   
+    
+第二个问题，如何跳转到 swi_handler
+
+0x8:	b swi_handler  0xEA0000000 | 0x2003
+		0xEA002003
+
+0x801C	: swi_handler 入口
+
+(offset) * 4 = 0x801C - 0x8 - 8
+offset = 0x2003
+offset:  从 PC 到 目标地址 之间相差的指令数
+
+0x8:	0xE59FF010		ldr pc, [pc, #0x10]
+0xC: 
+0x20:	swi_handler 0x801c
+
+0x21000000 :
+	
+	
+New Project
+	start.s -> add to project
+	main.c 	-> add to project
+	Setting -> ARM Linker -> 1. robase 0x21000000
+							 2. layout start.o 
+							 3. PostLinker fromELF
+	
+	start.s
+		1. 切换模式到 USR = 0xD0
+		2. 跳转到 C
+		
+	main.c
+		1. 在C程序中调用软中断的方法
+			int __swi(0x1) sys_add(int a, int b, int c);
+			ret = sys_add(1, 2, 3);
+			上述代码会编译生成 4 条指令
+			[0xe3a02003]   mov      r2,#3
+			[0xe3a01002]   mov      r1,#2
+			[0xe3a00001]   mov      r0,#1
+			[0xef000001]   swi      0x1
+		2. 在C程序中，注册 SWI 异常的处理函数
+			因为要跳转的地址是在 0x21000000+ 区域，
+			因此只能在 0x8 注册一条 LDR 跳转指令，而不是B指令
+			实现办法是： 0x8: 写入一条 0xE59FFxxx (xxx=>020)
+						 0x30: 写入 handler 的地址 
+	
+		3. 实现一个真正的在汇编中能够返回模式和地址的 asm_swi_handler
+			需要修改 0x30: (int)asm_swi_handler
+			需要在 start.s 里面加入一个 asm_swi_handler 的函数
+			它的实现应该为：
+			asm_swi_handler	
+				stmfd r13!, {r0-r12, r14}
+	
+				bl C_swi_handler
+	
+				ldmfd r13!, {r0-r12, r14}
+				movs pc, lr	
+	
+			需要  	import C_swi_handler
+					export asm_swi_handler
+	
+		4. 修改 C_swi_handler 使得它能够传递用户参数
+		int C_swi_handler(int usera, int userb, int userc)
+		{
+			return add(usera, userb, userc);	
+		}
+	
+		5. 修改 asm_swi_handler	使得它能够漏过返回值给用户
+		asm_swi_handler
+				stmfd r13!, {r1-r12, r14}
+	
+				bl C_swi_handler
+	
+				ldmfd r13!, {r1-r12, r14}
+	
+		6. 最后测试时，把 0x8 处的断点去掉，
+		从用户看来，系统调用 sys_add 本质就是一条 swi 指令，而不是一个函数。
+	
+	
+9# 中断处理
+============	
+5. 中断标志位 SFR Pending bit
+	pending bit 的设置--硬件有关 (控制器寄存器PND)			
+	pending bit 的清除--软件有关 (控制器寄存器PND)
+	作用：识别中断源/调用相应的handler--软件有关(可以交给VIC实现)
+		Vectored 向量化的 （引入表示跳转地址的特殊功能寄存器）
+		
+6. 中断允许位 CPSR I-bit (IRQ Disable禁止)
+	加电之后，I-bit 的初始状态是 关闭/禁止 的 (0xD3->0x53)
+	MSR/MRS 可以允许使能--软件有关 (内核寄存器CPSR) 
+	
+7. IRQ发生 -> Pending bit -> I-bit	enable -> 跳转
+	(跳转之前，硬件会完成 disable I-bit，
+		因此不再响应后继任何中断，直到软件恢复CPSR)
+		
+8. 在软件恢复CPSR(重新允许中断)之前，软件需要清除之前的pending bit(VIC+ADDR寄存器=0)
+
+
+			IC				VIC
+---------------------------------------------------------------
+	硬件直接跳转到0x18		0x18 - 内存地址
+							0-INT -> beep()
+							10-Timer -> blink()
+							
+							INT_ADDR0 <- (int)beep
+							INT_ADDR10 <- (int)blink
+							
+							1. Prioiry 0 > 10
+							2. INT_ADDR0 -> VectADDR => pc
+							
+	b irq_handler0			VectADDR -> PC
+	LDR pc, =irq_handler0	VIC interface(A31-A0)
+---------------------------------------------------------------			
+
+	PEND |= 1<<0;
+	PEND = 0xFFFFFFFF;
+	PEND = 1<<0;		(right!)
+	
+	VIC (see ARM1176JZF-S.pdf P177)
+	1<<24 
+	
+pdf 下载链接
+	http://infocenter.arm.com/help/topic/com.arm.doc.ddi0301h/DDI0301H_arm1176jzfs_r0p7_trm.pdf
+	
+	推荐参考资料网站
+	
+	http://infocenter.arm.com
+	http://blog.csdn.net/eagle_lzt/article/details/6410212
+	
+	

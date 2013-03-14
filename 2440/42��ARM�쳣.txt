@@ -1,0 +1,96 @@
+exception
+
+异常向量表 0x8 SWI
+
+异常发生 
+swi 0x1, 0x2
+mov r3, r2
+
+异常响应
+
+b 跳转指令实现  0xEA000000
+ldr 跳转指令实现  0xE59FF000
+
+异常处理 swi_handler
+获取系统调用号
+ldr r0, [lr, #-4]
+bic r0, r0, #FF000000
+
+异常返回  movs pc, lr
+
+
+Interrupt
+中断 
+
+CLI - 命令行接口
+armasm 
+armcc -c 
+armlink -first   -ro-base
+fromelf -bin
+fromelf -c -d -s
+
+
+中断的流程
+1、切换到IRQ模式，设置sp_irq
+2. 切换到SVC模式，设置sp_svc
+3. 从asm跳转到c
+4. 注册asm_handler到 0x18
+5. 初始化中断源,设置触发方式
+6. 使能中断源,
+7. 打开mask屏蔽位
+8. 打开模式位, 决定产生IRQ
+9. 清除CPSR I-bit，允许IRQ
+10. 进入主程序，死循环
+---
+1. 保存现场,stmfd sp!, {}
+2. 跳转到 c handler, bl
+3. 清除pending位，SRCPND, INTPND
+4. 进行中断处理，根据 INTPND
+5. 回到汇编，恢复现场 ldmfd sp!, 
+6. IRQ异常返回，subs pc, lr, #4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+load ram 0x30000000 116 x
+go 0x30000000
+
+load ram 0x0 116 x
+go 0x20
+
+
+
+
+
+
+
+
+
+
+0xEA0000B2	pc + 0xb2 * 4
+
+
+
+
+

@@ -1,0 +1,46 @@
+MINI6410 # help
+?       - alias for 'help'
+base    - print or set address offset
+bdinfo  - print Board Info structure
+bootm   - boot application image from memory
+bootp	- boot image via network using BootP/TFTP protocol
+branch  - enable or disable branch prediction
+cmp     - memory compare
+cp      - memory copy
+crc32   - checksum calculation
+dcache  - enable or disable data cache
+dnw     - initialize USB device and ready to receive for Windows server (specific)
+echo    - echo args to console
+erase   - erase FLASH memory
+exit    - exit script
+flinfo  - print FLASH memory information
+go      - start application at address 'addr'
+help    - print online help
+icache  - enable or disable instruction cache
+imls    - list all images found in flash
+itest	- return true/false on integer compare
+loadb   - load binary file over serial line (kermit mode)
+loads   - load S-Record file over serial line
+loady   - load binary file over serial line (ymodem mode)
+loop    - infinite loop on address range
+md      - memory display
+mm      - memory modify (auto-incrementing)
+movi	- MoviNAND sub-system
+mtest   - simple RAM test
+mw      - memory write (fill)
+nand    - NAND sub-system
+nboot   - boot from NAND device
+nfs	- boot image via network using NFS protocol
+nm      - memory modify (constant address)
+ping	- send ICMP ECHO_REQUEST to network host
+printenv- print environment variables
+protect - enable or disable FLASH write protection
+rarpboot- boot image via network using RARP/TFTP protocol
+reset   - Perform RESET of the CPU
+saveenv - save environment variables to persistent storage
+setenv  - set environment variables
+sleep   - delay execution for some time
+test    - minimal test like /bin/sh
+tftpboot- boot image via network using TFTP protocol
+usb     - USB sub-system
+version - print monitor version

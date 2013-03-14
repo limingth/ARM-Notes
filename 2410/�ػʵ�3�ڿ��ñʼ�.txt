@@ -1,0 +1,211 @@
+一、开发板的基本硬件结构
+底板+核心板
+灵活，可复用
+成本因素
+
+1、核心板：
+SoC CPU: S3C2410 （数据手册 pdf）
+	272-FBGA 封装
+	ARM920T 内核 - 203Mhz
+MEM: SDRAM (k4s561632c.pdf)
+	54Pin TSOP 封装
+	64M bytes = 32M * 2
+	32Mbyte = 256Mbit = 4M * 16bit * 4
+	4M = 2^22 = A0-A21 = 22 (13行+9列)
+	16bit = D0 - D15
+	4 banks = BA0, BA1
+FLASH: K9F1208 (Nand Flash)
+	48pin - TSOP1 封装
+	64Mbyte = 64M * 8bit
+	64M = 2^26 = A0-A25
+	4 cycles (address)
+	按照 block 和 page 来区分的
+	其中 1 block = 32 page
+	1 page = 528 byte = 512byte + 16byte
+	1 block = 16K byte
+	1 device = 4096 block * 16K = 4Kblock * 16K
+
+2、底板：
+PS2 接口 * 2
+IDE 接口 （可接硬盘）
+SD 卡
+JTAG 接口 （20pin）
+GPIO 按键 （RESET按键）
+USB Host * 2
+USB Device * 1
+Micphone 录音
+Audio 耳机
+LCD和触摸屏接口
+VGA 输出
+TV 输出
+以太网口 Internet
+串口 * 2  (UART)
+钮扣电池 (RTC)
+
+二、烧写流程
+* 烧写程序
+bin 文件： 无格式，可烧写 (BINary)
+axf 文件： 有格式，烧写后不能执行 (Arm eXecutable File)
+
+* 烧写工具
+H-Jtag: 
+1) Jtag Server: 检测 CPU ，通报 内核型号 ARM920T
+PC -> Jtag-server.exe -> PC并口 -> 并口电缆
+-> JTAG 小板子（Jtag wiggler仿真器）-> 开发板JTAG接口 
+-> S3c2410 芯片 -> ARM920T 内核
+
+2) H-Jtag Flasher 编程器(烧写器)
+1-Flash 芯片选型: s3c2410 + K9F1208
+2-RAM start addr: 0x0
+3-ignored
+4-ignored
+5-program: NandFlash (block 0, page 0)
+
+3) 超级终端连接开发板
+hypertrm 连接 PC串口 <--> 开发板串口
+设置 COM1 , 参数设置 
+波特率 19200, 115200
+数据位 8bit
+奇偶校验 无
+停止位 1
+数据流控制 无 （会影响键盘输入，无显示）
+
+4) 重启开发板
+热启动 reset  一般情况
+冷启动 power  异常情况
+
+三、开发流程 
+armasm: 汇编器
+armcc：编译器
+	-c: 只编译不连接
+armlink: 连接器
+	-first: 指定连接的顺序，把start.o放在最前面
+	-ro-base: 设置只读代码段的起始地址
+fromelf：格式转换工具
+	-bin: 把 axf 转换成 bin 格式文件
+		-m32, -i32
+	-c: disassemble 反汇编
+
+axf: 可执行格式的文件
+bin: 二进制文件
+txt: 反汇编代码
+
+小尾端 存储：  
+0xE3A0DD40 : 按字节从低地址到高地址
+40 DD A0 E3
+
+make.exe 工具 和 Makefile
+
+
+下午：
+一、特殊功能寄存器
+SFR: Special Function Register
+说到 SFR 的时候，这种寄存器总是和一个地址对应的
+
+S3C2410 内部结构框图
+SoC = 内核 + 外设
+内核：运算，Regs + Ins
+外设：控制，SFR + R/W (LDR/STR)
+
+配置 SFR ，需要了解 位域 (bit-field) 这个概念
+
+串口配置参数：
+RxD/TxD 管脚功能模式
+Polling Mode 串口工作模式使能
+Baud Rate 波特率设置
+Data bits 数据位8bit
+
+二、串口的工作原理
+1、串口的接插件
+DB9： 
+
+* * -- GND 5
+* *
+* * -- RxD 3
+* * -- TxD 2
+  * 
+
+TxD0 代表s3c2440 的串口0的数据发送：K15
+Selectable Pin Function: 可选择的管脚功能
+TxD 工作方式，则这个管脚归 UART Controller管理
+否则，这个管脚归 GPIO 管理
+
+2、Signal Descriptions 
+管脚（信号）的功能描述
+--> 得到每个控制器需要管理（使用）哪些管脚来工作
+
+3、UART Block Diagram
+串口的工作原理框图
+1）Shifter 移位器 8bit (TxD/RxD)
+2）Buffer 缓冲器 16bytes（FIFO队列）
+3）Baudrate Generator 波特率发生器 （1bit所需要的时间）
+4）Clock Source 输入时钟
+5）Control Unit 控制单元 （发送数据8位/5位）
+
+结论：
+所有我们设置的SFR，都应该和UART内部的工作逻辑有关
+
+4、Serial IO Frame Timing Diagram
+串行IO帧时序图
+所看到的TxD的管脚上，在工作时，呈现的电平变化
+
+5、UART SFR
+初始化相关寄存器
+GPHCON
+UCON0
+UBRDIV0
+ULCON0
+
+数据发送/接收寄存器
+UTXH0
+URXH0
+
+
+三、串口驱动实现
+编码
+裸编码  ->	uart_init()		
+		uart_putchar(c);
+		uart_getchar();
+
+
+#define 
+
+作业： 完成 uart_gets(), uart_puts(str);
+
+
+第二天
+miniboot 编码实现
+1. bootloader 的作用和功能演示
+loadx 命令
+go 命令 
+
+2. miniboot 编码
+1) 搭建程序框架 
+	start.s main.c Makefile
+
+2) 实现串口驱动
+	uart_init(), uart_putchar(), uart_getchar()
+	完成 回显 echo 功能
+
+3) 实现stdio - gets, puts 命令行的输入和输出
+	gets(), puts()
+	完成 shell 的命令输入和命令显示
+
+4) 实现Parser 命令解析器 (Shell/Command)
+	识别 load 和 go 命令
+	关闭看门狗，
+	初始化SDRAM (0x31000000 & 0x32000000)
+	实现 md 来显示内存单元的值
+
+5) 实现 load 和 go 功能
+	load 的地址固定 0x31000000
+	并且，下载的长度固定 8436
+	传送文件时，选择 发送文本文件，*.*
+	传送结束时，打印提示信息，并且用 md 查看
+	
+6) 实现 命令行的参数传递
+	loadbin 8436	(wavplayer.bin)
+	//loadwav 29444	(try1-44khz-16bit-2channel.wav)
+	loadwav 475036	(try3-44khz-8bit-1channel.wav)
+	go 
+

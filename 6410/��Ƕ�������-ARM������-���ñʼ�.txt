@@ -1,0 +1,405 @@
+6410 开发 课堂笔记
+
+课程主页：
+http://2372614758.qzone.qq.com
+
+
+Lecture 1: 硬件环境
+底板
+	外设
+核心板
+（最小系统）
+CPU - S3c6410 - ARM11
+MEM - DDR SDRAM - K4X - （2片）
+FLASH - NandFLash (NorFlash)
+电源
+时钟
+JTAG - 调试
+
+超级终端：hypertrm
+波特率 115200
+硬件流控制 无
+
+
+Lecture 2: 开发工具
+
+SRAM: S3c6410 芯片内部 0-16K
+0x0: 	ea000013
+0x4000: ea000013
+0x8000:
+16K == 0K
+
+
+SDRAM DDR: S3c6410 芯片外部 2片一样的 256M
+0x50000000: 起始
+0x60000000: 0x50000000+256M: 结束
+
+1M = 20个0
+256 = 2^8 = 8个0
+20+8 = 28 个 0 
+28 / 4 = 7
+0x100000000 = 2^28 = 256M
+
+
+SFR：
+S3c6410 芯片内部外设控制器的特殊功能寄存器：
+Special Function Register: 内存地址
+芯片手册 SFR
+LED实验
+MINI6410 # mw 0x7f008800 0x11111111
+MINI6410 # mw 0x7f008808 0x0		亮
+MINI6410 # mw 0x7f008808 0xffffffff	灭
+MINI6410 # mw 0x7f008808 0x0
+MINI6410 # mw 0x7f008808 0xffffffff
+MINI6410 # mw 0x7f008808 0x0
+
+蜂鸣器实验
+MINI6410 # mw 0x7f0080a0 0x55555555
+MINI6410 # mw 0x7f0080a4 0x0
+MINI6410 # mw 0x7f0080a4 0xffffffff
+MINI6410 # mw 0x7f0080a4 0x0
+MINI6410 # mw 0x7f0080a4 0xffffffff
+MINI6410 # mw 0x7f0080a4 0x0
+
+按键输入设备
+
+
+Lecture 3：软件工具
+ADS 1.2
+IDE.exe
+
+命令行
+-----------------
+armcc: 
+	-c 只生成 .o 目标，不链接生成 axf
+armasm:
+armlink: 
+	*.o(start.o, main.o) -> __image.axf
+	-o demo.axf (output)
+fromelf:
+	-bin 
+	axf->bin
+	7,252 demo.axf
+   	  996 demo.bin
+make: 
+
+.o 目标
+.axf 可执行
+
+
+
+
+Section 2: GPIO 编程实现
+=========================
+Lecture 2.1: 理论基础
+LED, Beep, Key
+md, mw 
+SFR: 0x7f008800, 0x7f008808
+
+硬件开发的专业术语：
+芯片手册：
+	S3C6410X.pdf
+硬件原理图： 底板+核心板 之间，所有引脚连接情况
+	底板：Tiny6410SDK-1111-底板原理图.pdf
+	核心板：Tiny6410-1107.pdf
+硬件手册：
+	01- Tiny6410硬件手册-20110805.pdf
+
+硬件原理-连接关系：
+1）s3c6410 的管脚
+424-pin FBGA 
+Pin Assignment 管脚物理位置-逻辑名称
+
+Pin Description 管脚逻辑名称-功能描述
+
+2）硬件原理图
+如何查看
+LED_1: GPK4 (0: on, 1: off)
+
+
+嵌入式开发的一般原理
+解决 SoC 芯片(s3c6410) --> 外围设备 之间编程控制的关系
+
+解决的途径：通过编程去控制 s3c6410 芯片外围424管脚
+	时序：Timing 串口
+
+编程的方法：
+需要我们了解这些管脚GPK4和哪些SFR(GPKCON)相关联
+对SFR的所代表的“内存”地址，进行读写操作.
+
+通过C语言：
+指针： int * p = 0x7f008800;
+	a = *p;
+	*p = b;
+
+	device(peripheral) controller
+SFR  ------------------------------------->  Pin -> device
+
+
+
+Lecture 2.2: 编程实现
+
+led 的控制实现
+
+	GPIO controller(GPK port) 第10章
+SFR  ------------------------------------->  Pin -> device
+GPKCON0					GPK0-GPK15 
+GPKCON1					 (16 pin)
+GPKDAT	----->				GPK4 ------> LED_1
+GPKPUD
+
+
+	蜂鸣器
+device： buzzer (底板的硬件原理图)
+-> PWM0 pin -> Connector (底板) -> (核心板) -> H16(GPF14)
+
+bit14:
+
+
+举例说明：
+GPKCON0: bit16 = 1
+	bit17, 18, 19 = 0
+控制字：(setting value)
+0x00010000
+
+0001 0000 0000 0000 0000
+    15                0
+
+
+mw 0x7f008800 0x11111111
+mw 0x7f008808 0x0	
+
+GPK4 : output
+
+mw 0x7f008800 0x00010000
+mw 0x7f008808 0x0 (0x10)
+
+GPKDAT: bit4 = 0/1
+0x0;
+控制字：(setting value)
+0x10 (led off)
+0x0 (led on)
+
+0x00000010
+0001 0000
+   4 3210
+loadb 命令
+go 命令
+
+MINI6410 # help loadb
+loadb [ off ] [ baud ]
+    - load binary file over serial line with offset 'off' and baudrate 'baud'
+
+MINI6410 # loadb 0x50000000
+## Ready for binary (kermit) download to 0x50000000 at 115200 bps...
+## Total Size      = 0x0000001c = 28 Bytes
+## Start Addr      = 0x50000000
+MINI6410 #
+MINI6410 # go 0x50000000
+## Starting application at 0x50000000 ...
+
+
+课后作业：
+1）请分析蜂鸣器设备的硬件原理图，写出可以控制蜂鸣器发声的精确代码（具体到bit）。
+
+2）请分析按键的工作原理，写出用按键K5控制蜂鸣器发声，K6控制所有LED灯亮灭的代码。
+
+
+Lecture 2.3: 嵌入式开发的代码规范化
+
+如何规范？
+问题1： 能否用 delay() 来代替代码中的 for();
+
+解决的办法： 
+引入一个启动的汇编文件，从汇编首先进入，然后调用c程序。
+
+volatile 关键词
+http://learn.akae.cn/media/index.html
+http://learn.akae.cn/media/ch19s06.html
+
+
+1) 引入宏定义，定义所有需要用到的 SFR （名字需要从芯片手册中得到）
+2) (*(int *)0xADDR)
+3) 指针类型加入修饰符 volatile unsigned  
+4) 所有对于之前地址操作，都修改为对于 SRF 宏定义的操作
+
+更好的程序要求：
+a) 注释
+b) 自注释
+
+位操作
+|= (1<<N);	 set 1
+&= ~(1<<N);	 set 0
+http://learn.akae.cn/media/ch16s01.html
+
+
+
+Section 3: UART 编程实现
+Lecture 1: UART 工作原理
+外围设备（外设）驱动开发的一般流程
+
+1）开发板硬件连接情况
+查看开发板的硬件原理图
+1.1 接插件：外观，直观
+DB9 接口，编号 1-5（5根），6-9（4根）
+
+2号：RxD 接收
+3号：TXD 发送
+5号：GND 接地
+
+1.2 查看连接关系，接插件引脚 -- SoC 芯片引脚之间的关系
+MAX3232 芯片 T1in(TXD0) -> T1out (RSTXD0)
+电平转换，TTL 电平1(3.3v) ->  RS232 电平 (+15v  -15v)
+
+1.3 SoC s3c6410 芯片
+A23： XuTXD0/GPA1
+D20:  XuRXD0/GPA0
+
+查看 6410 芯片手册
+P76 页： 结论：硬件原理图和芯片手册 吻合
+GPA1：属于 GPIO。功能复用。属于UART controller管理。
+GPA0：
+
+属于 GPACON 寄存器，功能方式设为非IO
+GPXDAT
+
+结论是： Pin 功能复用，一般情况下，都是需要设置的。
+默认情况一般是输入。（也有例外：NandFlash controller pin ALE/CLE ）
+设置为 0010， 0010 是完成串口发送和接收的工作方式的一个必要条件
+
+
+
+2）Pin -> Regs
+
+	     UART controller 第31章                        硬件原理图
+SoC SFR  -------------------------------------> SoC Pin --------------------> device
+
+
+Chapter ->  Overview  ->  Block Diagram (框图)  -> SFR (15个*4)  -> ( ??/15 )
+
+Read-Only:  状态寄存器
+Write-Only: 控制寄存器
+Read/Write: 数据寄存器
+
+
+初始化：写控制寄存器
+读写数据： 读写数据寄存器 （通常需要去查看状态寄存器）
+
+
+Lecture 2: 串口驱动的具体分析
+
+UART
+
+(SFR) - Setting Value 控制参数 （15 reg *32bit = 400-500）
+------------
+
+(controller) block diagram - Logic 工作逻辑
+
+------------
+(pin) - Timing 时序 （结果）
+
+
+从结果分析：
+问题1： TxD 引脚上，需要产生什么样的时序（高低电平的变化）才能正确工作？
+解答：需要去分析发送时序，一个串口数据的帧(Frame)结构。
+帧： 
+空闲状态
+起始位
+数据位
+	（奇偶校验位）
+停止位
+恢复到空闲状态
+
+
+
+问题2： 要得到这样的时序输出，UART Controller 控制器是如何工作的？
+解答：串口控制器工作逻辑
+
+Transmitter 发送器 黑匣子
+1） 数据总线 （'a'）
+2） 控制单元 control unit （数据位8位，停止位，有无奇偶校验位）
+3） 波特率发生器 （每秒的数据量/每1个bit位数据所占用的时序上时间宽度）
+
+黑匣子的内部：
+4）Transmit Buffer FIFO 队列（缓冲器 64byte）
+5）Transmit Shifter 移位器
+
+115200 bps 波特率 ->  1秒传送 115200 bit -> 1帧10bit  
+115200/10 = 11520 byte 数据 = 11k/s
+
+1bit 需要的时间 1/115200 = 8.68 * 10 ^ (-6) = 8 微秒
+1byte 'a' -> 10bit * 8微妙 = 80微秒
+
+80/1000 = 0.08 微秒 / 3 = 0.02 微秒 = 20 纳秒 1条 
+
+相对人的感觉 秒（毫秒）很短的
+但是微秒相对于 cpu 执行速度 其实是很长的
+
+
+问题3： 要让控制器这样去工作，那么应该怎样去设置SFR的值？
+串口有哪些 SFR ，哪些需要设置，应该设置成什么？
+
+一般常识：
+很多SFR的Reset Value，通常都是能够工作，也就是写驱动时，直接使用默认值。
+
+经验之谈：
+能不设的就先不设，让它工作起来再说。
+
+如何让串口工作？
+1） 串口能够输出，有东西。
+对串口的SFR进行分析，可以得到（猜出）哪个是和据有关。
+得到结论： 
+UTXH0 0x7F005020 W 数据发送寄存器
+URXH0 0x7F005024 R 数据接收寄存器
+
+
+Lecture 3: 串口驱动代码实现
+要点：轮询状态寄存器的标志位，确认缓冲区满/空之后，才能进行读写
+void uart_putchar(char c);
+char uart_getchar(void);
+
+
+作业1： 在字符收发的基础之上，实现关于 gets, puts 字符串的收发，以用户输入Enter('\r')作为字符串的结束。
+然后回显这个字符串，并且自动实现换行输出。
+puts 相对容易
+gets 比较困难 
+1. 对于结束标志的判断。\r
+2. 用户可能输入 Backspace 退格键的处理。 \b  （3个键 \b ' ' \b）
+3. 用户可能退格退过头了，造成把前面提示符删除。
+
+
+
+作业2： 完整串口驱动，还需要有 uart_init();
+初始化完成的工作，本质上就是设置SFR的值。
+
+UART0 的初始化值（通过uboot bootloader 来设置）
+MINI6410 # md 0x7f005000
+7f005000: 00000003 00000e45 00000000 00000000    ....E...........
+7f005010: 00000000 00000000 00000100 00000011    ................
+7f005020: 00000000 0000000d 00000022 00001fff    ........".......
+7f005030: 00000005 00000005 00000000 00000000    
+
+通过分析，可以尝试去驱动 UART1 ，使得可以从 UART1 来进行输出。
+
+
+
+Section 4: Clock 时钟驱动
+
+System clock control P120 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

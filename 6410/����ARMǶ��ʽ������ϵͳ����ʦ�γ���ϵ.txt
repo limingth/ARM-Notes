@@ -1,0 +1,170 @@
+基于ARM裸机编程的项目实践
+
+课表安排:
+
+第一阶段 		2周	60学时
+Bootloader 项目实践
+SRAM/DDR RAM/Nand Flash/
+Watch Dog/CLOCK
+GPIO(LED/BEEP/Key)，UART，RTC，IIC-EEPROM
+Interrupt，PWM-Timer，DMA，
+
+#0:	时间安排和团队分组			9.5 晚上
+-------------------------------------------------------------
+ARM 基础理论和编程  		24学时
+#1: 	ARM 嵌入式硬件概述			9.6 上午
+	ARM ADS 开发工具			9.6 下午
+#2: 	ARM 体系结构概述			9.7 上午
+	ARM 指令集			9.7 下午
+#3:	ARM u-boot命令			9.7 晚上
+	ARM 硬件手册导读			9.8 上午
+#4: 	ARM 工具链开发			9.8 下午
+ 	ARM bootloader项目开题		9.8 晚上
+
+ARM Bootloader项目实践		18学时
+-------------------------------------------------------------
+#5: 	1－CLOCK				9.10 上午
+	2－UART				9.10 下午
+#6:	3－stdio 			9.10 晚上
+	4－shell 			9.11 上午
+#7:	5－command 			9.11 下午
+	bootloader 项目总结 		9.11 晚上
+	
+ARM 中断理论和实践：		18学时
+-------------------------------------------------------------
+#8: 	ARM 异常处理			3学时 9.14 上午
+	ARM 软中断编程实践			3学时 9.14 下午
+#9:	ARM 中断编程(按键中断实现)		3学时 9.14 晚上
+	Timer/UART 中断编程实践		3学时 9.15 上午
+#10:	中断代码总结			3学时 9.15 下午
+	DMA 理论和编程实践			3学时 9.15 晚上
+
+#?:	Linux 嵌入式开发		30学时
+	基本命令	1天
+	开发环境	1天
+	交叉工具	1天
+	汇编语言	1天
+	移植	1天
+
+
+第二阶段 		9周 ＝ 3＋3＋3	270学时		
+数码相框项目实践：			
+SD，LCD，ADC(TS)，AC97，WM9714，DM9000
+
+基本版数码相框		15天，3周
+#1 文件IO
+	1、SD 卡驱动				2天
+	2、FAT 文件系统				2天
+	3、文件IO库 (open/read/write/close)	1天
+
+#2 ELF Loader
+	1、ELF/AXF 文件加载			2天
+	2、Shell 实现				1天
+
+#3 FrameBuffer 编程
+	1、LCD 驱动 				2天
+	2、画点，画线，BMP图片显示			1天
+	3、综合项目：图片特效			2天
+
+#4 FreeType 字体
+	1、字体显示（font）			1天
+	2、综合项目：数码相框基本功能 （图片+文字）	1天
+－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－
+
+	
+音乐版数码相框			15天，3周
+#5 TouchScreen 用户输入
+	1、ADC 驱动				2天
+	2、单击/双击事件响应			1天
+
+#6 AC97 音频播放
+	1、AC97/WM9714 驱动			3天
+	2、Wav文件播放				1天
+	3、综合项目：Mp3播放器			2天
+
+#7 MultiTask 多任务
+	1、多任务OS雏形				3天
+	2、MMU （可选）				2天
+	3、综合项目：数码相框（图片+音乐）		2天
+－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－
+
+
+网络版数码相框			15天，3周
+#8、DM9000 网卡驱动				3天
+#9、TCP/IP 协议移植				3天
+#10、Socket 接口实现				4天
+－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－
+综合项目：（远程控制）				5天
+
+
+第三阶段		4周	120学时
+机顶盒项目实践：
+USB Host（USB主端），
+TV-OUT（电视输出），
+IR (红外)，
+Mic (麦克输入)，
+CMOS Camera (摄像头)
+SD WiFi (无线局域网)
+
+功能1：能接U盘，显示U盘上的图片，播放U盘上的音乐，通过红外遥控来控制播放，
+功能2：通过SD WiFi无线局域网上网，浏览互联网 www 网页
+功能3：内置 webserver ，通过网页进行远程 CGI 控制
+
+
+学习时间x，总计
+3＋9＋4 ＝ 16周
+
+
+Chapter 1	Product Overview	
+Chapter 2	Memory Map	Chapter 3	System Controller
+Chapter 4	Memory Sub-system
+Chapter 5	DRAM Controller
+Chapter 6	SROM Controller
+Chapter 7	OneNAND Controller
+Chapter 8	NAND Flash Controller
+Chapter 9	CF Controller
+Chapter 10	GPIO
+Chapter 11	DMA Controller
+Chapter 12	Vectored Interrupt Controllers
+Chapter 13	Security SUB-Systems
+Chapter 14	Display Controller
+Chapter 15	Post Processor
+Chapter 16	TV Scaler
+Chapter 17	TV Encoder
+Chapter 18	GRAPHICS 2D
+Chapter 19	Image Rotator
+Chapter 20	Camera Interface
+Chapter 21	Multi-FORMAT Video Codec
+Chapter 22	JPEG Codec
+Chapter 23	Modem Interface
+Chapter 24	Host Interface
+Chapter 25	USB HOST Controller
+Chapter 26	USB2.0 HS OTG
+Chapter 27	SD/MMC HOST Controller
+Chapter 28	MIPI HSI interface controller
+Chapter 29	SPI
+Chapter 30	IIC-Bus Interface
+Chapter 31	UART
+Chapter 32	PWM Timer
+Chapter 33	Real Time Clock (RTC)
+Chapter 34	WatchDog Timer
+Chapter 35	AC97 Controller
+Chapter 36	IIS-BUS Interface
+Chapter 37	PCM Audio Interface
+Chapter 38	IrDA Controller
+Chapter 39	ADC & Touch Screen Interface
+Chapter 40	KEYPAD Interface
+Chapter 41	IIS Multi Audio Interface
+Chapter 42	Graphic 3D
+Chapter 43	AXI Buses
+Chapter 44	Electrical Data
+Chapter 45	Mechanical Data
+
+
+
+
+
+
+
+
+

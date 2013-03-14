@@ -1,0 +1,256 @@
+team1: 刘建华
+	1、怎么找相关寄存器？
+	2、SDRAM的寻址方式？
+	3、各种寄存器的初始化？ MPLLCON，ULCON，UCON
+team2: 钟立
+	1、什么是寄存器？
+	2、怎么找寄存器？
+	3、寄存器是不是硬件决定？
+	4、SDRAM的寻址方式？
+	5、状态寄存器用来干什么？
+team3: 何先扬
+	1、串口的读写？
+	2、怎么找我们想要的寄存器
+	3、LoadF 没有运行成功
+	4、芯片手册怎么看？
+	5、ARM到底是个什么模型？怎么工作的？电路图怎么看？
+team4: 杨小明
+	1、驱动一个设备，要用哪些寄存器？
+	2、底板和核心板的关系
+	3、串口和并口的区别
+	4、GPIO是哪个器件的引脚？
+team5: 梅武标
+	1、ARM板子的布局
+	2、某个驱动的具体原理
+	3、对于寄存器和内存不了解
+	4、怎么查找寄存器
+	5、对于移位操作不了解
+
+
+内容总结：
+1、SoC Memory Map 内存映射图
+nCSx: 片选
+bank: 块，地址区域
+Timing： 读写时序
+SFR：特殊功能寄存器
+
+1、所谓的驱动，本质上就是通过控制SFR，从而间接的实现正确的Timing
+2、要想知道Timing，首先要知道Signal description
+3、要深入了解signal，首先要知道 Pin Assignments
+4、需要知道的一个常识：那就是芯片里的绝大部分的Signal都是由GPIO复用得到的
+
+
+2、SRAM, SDRAM, Nor Flash, Nand Flash 的区别
+SRAM: 
+发地址-读写数据
+
+SDRAM: 
+发Row地址-发Col地址-读写数据
+
+NorFlash: 
+发1次地址-读数据		
+发写命令-发1次地址-写数据
+
+NandFlash: 
+发读命令0x00-发4次地址-读数据		
+发写命令0x60-发4次地址-写数据
+
+
+3、写驱动的流程和原理是什么？
+Board板级：
+外设接口、Signal、原理图、与主芯片的关系
+
+Chip芯片级：
+controller、Block Diagram、SFR（s3c2440/UDA1341TS）、Signal、Timing
+
+Register寄存器级：
+工作原理，初始化流程，寄存器参数、时钟信号，复位/使能等
+
+
+案例分析：
+声卡驱动学习
+
+Step1 - Board级: 
+耳机 
+- GND, VOUTL, VOUTR
+
+MK1在板, 简易micphone 
+- VINL1, VINR1
+
+MIC 线输入 line input 
+- VINL2, VINR2
+
+5根线- IIS signal ( see s3c2440 pdf P51 )
+I2SSDO, I2SSDI, I2SLRCK, I2SSCLK, CDCLK 
+IIS-Bus
+I2SLRCK IO IIS-bus channel select clock
+I2SSDO O IIS-bus serial data output
+I2SSDI I IIS-bus serial data input
+I2SSCLK IO IIS-bus serial clock
+CDCLK O CODEC system clock
+
+3根线- L3 signal ( see uda1341 pdf P12 )
+GPB2 - L3MODE
+GPB3 - L3DATA
+GPB4 - L3CLOCK
+
+S3c2440
+	IIS interface
+		IIS controller
+			I2SSDO, I2SSDI, I2SLRCK, I2SSCLK, CDCLK 
+	L3 interface 
+		GPIO controller
+			GPB2, GPB3, GPB4 
+
+UDA1341TS
+	GND, VOUTL, VOUTR
+
+耳机
+	GND, VOUTL(pin3/pin5), VOUTR(pin2/pin4)
+
+基本工作原理
+S3C2440 主芯片 通过 IIS 总线和 L3 总线和 UDA1341 声卡芯片相连，
+把数字信号（WAV文件）发送给 UDA1341 进行DA转化，
+最后输出模拟信号给耳机（左右声道）
+
+
+Step2 - Chip芯片级: 
+controller、Block Diagram、SFR（s3c2440/UDA1341TS）、Signal、Timing
+
+controller:
+S3c2440: IIS controller
+Block Diagram (see 2440 pdf P493) 
+1. IIS-Bus Block Diagram
+	输入：DATA，ADDR，CNTL，PCLK，MPLLin 
+	输出：SD（I2SSDO，I2SSDI），SCLK，LRCK，CDCLK
+IIS SFR
+IIS
+IISCON 0x55000000,02 0x55000000 HW,W R/W IIS control
+IISMOD 0x55000004,06 0x55000004 IIS mode
+IISPSR 0x55000008,0A 0x55000008 IIS prescaler
+IISFCON 0x5500000C,0E 0x5500000C IIS FIFO control
+IISFIFO 0x55000012 0x55000010 HW IIS FIFO entry
+
+UDA1341: ADC/DAC controller
+Fig.1  Block diagram. (see uda1341 pdf P5)
+	输入：VINL1/R1, VINL2/R2 - MicPhone1/2
+		L3Mode, L3Data, L3Clock
+		SYSCLOCK（CDCLK）
+		BCK (SCLK)
+		WS (LRCK)
+		DATAI (IISSDO)
+		
+	输出：VOUTL/R - 耳机
+		DATAO (IISSDI)
+
+UDA1341 SFR
+see uda1341 pdf P12
+STATUS CONTROL
+DATA0 DIRECT CONTROL
+DATA0 EXTENDED PROGRAMMING REGISTERS
+DATA1 CONTROL
+
+总结： 
+IIS SFR - WAV 数字音频数据
+IIS interface: 5 根线
+SD（I2SSDO，I2SSDI）：串行数据输入和输出  
+SCLK - BCK ：位时钟
+LRCK - WS ： 帧时钟（左右声道各1组数据-8bit/16bit）
+CDCLK - SYSCLOCK ： 编解码时钟，用于数模转换的
+
+Timing：（see 2440 pdf P249）
+LRCK
+SCLK
+SDo/i
+
+UDA SFR - volume，bass，mute, reset 非数据量（控制量）
+L3 interface: 3 根线
+L3mode: 模式信号（当前传输的是地址0，还是数据1）
+L3data: 串行数据信号
+L3clock: 串行位时钟信号
+
+
+主频： 1hz - 1s 执行 1 条指令
+10hz - 1s 执行 10条 指令，1条指令需要 0.1 秒
+
+1Khz - 1s 执行 1000条 指令，1条指令需要 0.001 秒 = 1毫秒
+
+1Mhz - 1s 执行 1000000条 指令，1条指令需要 0.000001 秒 = 1微秒
+
+200Mhz - 1s 执行 1000000*200条 指令，1条指令需要 0.000001 秒 = 1微秒/200 = 5纳秒
+
+190纳秒 约200纳秒 = 除以 5 = 40 条指令
+
+1Ghz - 1s 执行 1000000000条 指令，1条指令需要 0.000000001 秒 = 1纳秒
+
+
+如果 WAV 文件中，音频采样级别是 44Khz，也就意味着1秒有44K个音频数据（包括左右声道）
+
+也就是帧时钟为 44K hz
+
+推理可得： 位时钟 
+如果音频采样大小是 16位，则位时钟是 44K * 32
+如果音频采样大小是 8位，则位时钟是 44K * 16
+备注： 
+16位指的是左声道16位，右声道16位，也就是可以从0-64K范围内变化
+8位指的是左声道8位，右声道8位，也就是可以从0-256范围内变化
+
+还有 CDCLK 编码解码时钟，一般是帧时钟的 256倍，384倍，512倍，可选
+也就是 44K * 384, 44K * 256, 44K * 512
+
+案例分析：
+如果 CDCLK 选择 384fs, 采样大小 16bit
+最后可得 CDCLK 和 SCLK 之间的关系是？？？
+CDCLK = 384 * 44K         384
+-------------------  =  --------- = 12
+SCLK = 44K * 32           32
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

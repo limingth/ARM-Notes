@@ -1,0 +1,211 @@
+知识体系：
+
+ARM Tools 开发工具
+汇编器 armasm (as)
+ ARM 汇编语言格式
+  TAB 开头
+  AREA 名称 -> 符号表 -> 链接
+  ENTRY 入口
+  END 结束
+  ; 注释
+  label 定义符号 -> 跳转
+  import symbol
+  export symbol (汇编文件内部的symbol对外不公开的，隐藏的，类似static)
+编译器 armcc (gcc/cc)
+ 编译参数
+  -o 指定输出文件
+  -c 只编译不连接
+  -g 增加调试信息
+  -Wall  强制显示所有warning警告，便于除错
+  -D 条件编译
+  -E 预处理
+  -I 包含路径
+  -S 生成汇编语言
+链接器 armlink (ld)
+ 链接参数
+  -ro-base 指定可执行代码的位置（代码段执行地址）
+  -rw-base 数据段执行地址
+  -first  指定 .o 文件放在链接的最开始处
+  -entry  指定 axd 调试工具加载 axf 文件的入口地址（转成bin之后就丢失了）
+  -scatter file 指定链接脚本（.scf文件/在linux下.lds文件）
+二进制工具 fromelf (objcopy/objdump)
+ 生成各种有用的文件
+ -bin 生成bin文件，最终烧写到开发板上
+ -c 生成txt文本文件，反汇编文件
+  -d          print contents of data section
+  -s          print symbol table
+  -t          print string table
+
+ARM Docs 开发文档
+DDI0100E_ARM_ARM.pdf ARM体系结构知识，侧重于内核
+ADS_CompilerGuide_D.pdf 编译器使用
+ADS_LinkerGuide_A.pdf 链接器使用
+ADS_AssemblerGuide_B.pdf 汇编器使用
+ADS_DebugTargetGuide_D.pdf 调试器使用
+ level 1: Debugger UI
+  接口：h-jtag.dll 动态链接库
+ level 2: Debug Server(Agent)
+  接口：Jtag连接方式(Wiggler)和并口驱动程序
+ level 3: Jtag 5芯接口(TDI, TDO, TCK, TMS, TRST)
+ 
+ARM board 开发板
+1. CPU (SoC)  
+ 主频，内部存储，采用内核 (MMU,CACHE,BUS)
+ 封装，外围管脚PIN，功能如何
+ 
+2. MEM (SRAM, SDRAM, NAND Flash, Nor Flash)
+ SRAM 纯总线访问 （地址，数据）
+ SDRAM 地址总线复用访问 （行地址，列地址，数据）
+ Nand Flash 地址数据共同复用IO总线 （命令字，地址1，地址2，地址3，地址4，数据0 - 数据511）
+ Nor Flash 读时序（纯总线访问）；写时序（类似NandFlash）；可以直接执行程序（XIP-excte in place）
+3. COMunicate 通讯接口
+ UART 串口通讯
+ NET 网口通讯
+ USB 通讯
+ JTAG 通讯 （实现下载RAM，烧写ROM，调试CORE）
+4. Peripheral 外设接口
+ GPIO 通用IO管脚
+ -----------------------------------
+ CLOCK 时钟管理 （Power电源管理）
+ MEMC 存储管理（内存控制器）
+ NandFlash 接口控制器
+ -----------------------------------
+ UART 串口通讯
+ PWM Timer 定时器
+ RTC 实时时钟
+ WatchDog Timer 看门狗定时器
+ SD Controller SD卡控制器
+ ADC 模拟-数字转换器
+ -----------------------------------
+ Interrupt Controller 中断控制器
+  UART, Timer, DMA
+ -----------------------------------
+ USB Controller 
+ LCD Controller
+ -----------------------------------
+ BUS Controller 总线控制器
+  IIC-BUS 
+  IIS-BUS (数字音频总线)
+  SPI (Serial Peripheral Interface)
+  AC97 (音频总线)
+ ----------------------------------- 
+5. 硬件原理图
+ 描述硬件芯片之间的连接关系 (Signal)
+ IIC - SCL, SDA
+ SPI - nSS, SPICLK, SPIMOSI, SPIMOSO
+6. CPLD VHDL 文件（源码）
+ 在硬件逻辑上可编程
+ 
+ARM SoC 芯片
+Bootloader 项目实践来认识这个芯片
+1. SoC DataSheet 
+ PRODUCT OVERVIEW （概述）
+  Features （特色）
+  Block Diagram （内部结构框图）
+  PIN ASSIGNMENTS （引脚分配布局）
+  Signal Descriptions （信号管脚描述）
+  SPECIAL REGISTERS （特殊功能寄存器） SFR
+   Name Address  R/W  Function
+ MEMORY CONTROLLER （内存控制器）
+  Memory Map （内存映射图，实现内存统一编址）
+  Bank （内存连续地址空间-内存块） 
+   CS （片选信号）
+   mem chip （存储芯片，地址范围）
+   BANK CONTROL REGISTER （和BANK对应的控制寄存器）
+  
+ CLOCK & POWER MANAGEMENT
+  Clock Generator Block Diagram （时钟发生内部结构框图）
+  Clock Source Selection （时钟源选择）
+  PLL （锁相环-倍频） 
+   PLLCON （锁相环控制寄存器）
+    PLL (Phase-Locked Loop) Block Diagram
+     Fin Fout
+     MDIV PDIV SDIV
+  DiV （分频）
+   CLKDIVN 分频控制寄存器 （HDIVN PDIVN）
+   FCLK - ARM920T 内核时钟
+   HCLK - AHB 总线时钟
+   PCLK - APB 总线时钟
+2. Controller 外设控制器 
+ GPIO （普通的通用的IO管脚）
+  GPXCON  方向和复用功能
+  GPXDAT  数据(1/0)
+  GPXUP  上拉功能
+ UART （串口控制器）
+  ULCON   数据位，停止位，奇偶校验位
+  UCON 时钟选择，模式选择（使能）
+  UBRDIV0 波特率因子（波特率计算公式）
+  -------------------------------------
+  UFCON0  设置FIFO功能以及大小
+  UMCON0 设置流控制
+  -------------------------------------
+  UTRSTAT0 状态寄存器，轮询时要用
+  -------------------------------------
+  UTXH0 数据发送寄存器
+  URXH0 数据接收寄存器
+  -------------------------------------
+ Timer （定时器控制器）
+  TCFG0 设置prescaler value，实现分频
+  TCFG1 设置divider value，实现分频
+  TCON 设置start/stop, Update TCNTB0 & TCMPB0, auto reload, inverter on/off
+  -------------------------------------
+  TCNTB0 设置定时精确（毫秒、微妙）秒数
+  TCMPB0 设置比较寄存器，从而影响PWM 输出（TOUT0）
+  -------------------------------------
+ RTC （实时时钟）
+  RTCCON 设置enable，
+  BCD 设置SEC，MIN，HOUR，DATE，DAY，MON，YEAR
+ 
+3. Interrupt 中断控制器
+ INTMOD  设置选择用 IRQ / FIQ 来触发异常
+ INTMSK  设置中断屏蔽位，是否打开某个中断源的屏蔽位
+ -------------------------------------
+ INTPND  状态寄存器，提供给内核哪些中断通过了屏蔽
+ SRCPND  状态寄存器，指示哪些中断发生了（设置屏蔽位对此无影响）
+ -------------------------------------
+ PRIORITY 设置中断优先级寄存器 
+ INTOFFSET 状态寄存器，读取该寄存器，能够得到当前最高优先级的中断号
+ -------------------------------------
+ SUBSRCPND 子 PND 寄存器
+ INTSUBMSK 子 MSK 寄存器
+ -------------------------------------
+ 
+ARM Core 内核
+ ARM920T 内核名称
+  ARM9TDMI Processor core
+   Processor Modes 工作模式 （7个）
+    USR/SYS, IRQ/FIQ, SVC, UND/ABT
+   Registers 寄存器（37个）
+    R0-R7 未分组 8*1
+    R8-R12 分组 5*2
+    R13, R14  分组 2*6
+    R15(PC) 程序计数器 1*1
+    CPSR 当前的程序状态寄存器 1*1
+    SPSR 备份的程序状态寄存器 1*5
+   Instructions 指令集
+    MOV （立即数）
+    ADD/SUB 计算
+    LDR/STR 访存
+    B/BL 跳转
+    LDM/STM 栈操作指令（FD/ED/FA/EA）
+    -------------------------------------
+    SWI 软中断
+    MSR/MRS 模式读写（程序状态寄存器PSR）
+    MCR/MRC 协处理器指令CP15
+    -------------------------------------
+    SWP 信号量 
+    -------------------------------------
+   Exceptions 异常（7个）
+    Exception Vectors 异常向量表
+     Reset，
+     Undefined instruction，
+     Software Interrupt，
+     Abort (prefetch)，Abort (data)，
+     IRQ，FIQ
+    Exception Entry/Exit 异常返回表
+     SWI MOVS PC, R14_svc  软中断返回（直接LR->PC）
+     IRQ SUBS PC, R14_irq, #4 硬件中断返回（需要LR减4）   
+  MMU (Instruction/Data)
+  CACHE (Instruction/Data) WriteBuffer
+  CP15 (协处理器15)
+  AMBA Bus
