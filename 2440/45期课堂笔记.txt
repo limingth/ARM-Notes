@@ -1,0 +1,319 @@
+1. Overview
+
+2. Feature
+
+3. Pin Assignment
+289-FBGA 封装
+208-QFP 封装
+48-TSOP 封装
+
+4. Pin Number & Pin Name (Signal)
+
+5. Signal Description
+--------------------------------------
+6. SFR: Special Function Register 
+
+--------------------------------------
+7. UART Signals Description
+Pin Number
+RxD0 - K14/GPH3
+TxD0 - K13/GPH2
+UEXTCLK - K15/GPH8
+
+NandFlash Signals Desc.  P49
+Pin Name:
+CLE - F5 GPA17
+ALE - D1 GPA18
+nFCE - 
+nFRE -
+nFWE -
+NCON -
+FRnB -
+
+8. UART Timing 时序
+---------------------------------------
+1) 时间顺序
+2) 地址，数据之间的关系
+3) 得出如果要按照规定的时序工作，则需要哪些工作参数？
+串口工作参数： 
+-数据位 8bit, 7bit, 6bit, 5bit
+-停止位 1bit?
+-奇偶校验位 有/无?
+-位时间 bit/second (bps) 波特率
+
+9. UART SFR 寄存器
+            HW Controller
+we -> SFR ------------------> Signal -> Timing
+            Block Diagram
+
+10. Block Diagram
+1) Shifter -> TxD 
+2) Buffer -> Shifter
+3) BaudRate Generator -> Shifter
+4) Control Unit -> Baud
+   Control Unit -> Shifter
+   Control Unit -> Buffer
+5) Bus (Data) -> Buffer
+6) Bus (SRF Setting) <--> Control Unit
+7) Clock (PCLK) ---> Baudrate Generator
+
+10. SFR Coding (Read & Write)
+ULCON0 0x50000000
+UCON0  0x50000004
+		UFCON0 0x50000008
+		UMCON0 0x5000000C	
+		UTRSTAT0 0x50000010
+		UERSTAT0 0x50000014
+		UFSTAT0 0x50000018
+		UMSTAT0 0x5000001C
+UTXH0 0x50000020
+URXH0 0x50000024
+UBRDIV0 0x50000028
+
+
+	// GPH2 TXD[0], GPH3 RXD[0]  
+	GPHCON |= 1<<5 | 1<<7;
+	
+	// Word Length [1:0] 
+	// 	11 = 8-bits
+	ULCON0 |= 1<<0 | 1<<1;
+	
+	// polling mode (enable)
+	UCON0 |= 1<<0 | 1<<2;
+	
+	// UBRDIVn  = (int)( UART clock / ( buad rate x 16) ) –1
+	// UBRDIVn  = (int)(40000000 / (115200 x 16) ) -1
+	// 12000000/19200/16 - 1 = 39.0 -1 = 38
+	UBRDIV0 = 38;
+	
+	// UTXH0 -> data
+	while(1)
+		UTXH0 = 'A';	
+
+1) 输出 'A' - 'Z' 26个字母，重复，不断重复
+
+2) 接收用户输入小写 a - z, 输出 相对应的 A - Z
+
+
+clock generator
+OM[3:2]		Operating Mode 操作模式	时钟源
+OM[3,2,1,0] 都是硬件管脚，由硬件原理图来决定他们的取值。一般都是上拉或者下拉，其中接Vdd取值为1，接Gnd取值为0
+
+1. PLL 锁相环 
+作用: 倍频
+公式：Fout = (Fin * 2 * m )/(p * 2^s)
+参数：m = MDIV + 8; p = PDIV + 2;  s = SDIV
+MDIV, PDIV, SDIV ---> PLLCON
+PLLCON : (MPLLCON + UPLLCON)
+
+2. DIV 分频（用除法）
+Divider： 分频器
+DIVN: 分频因子，用法上通常需要 + 1
+HDIVN：FCLK/?
+PDIVN：FCLK/?
+
+比较灵活的做法是： FCKL/n (DIVN+1)
+
+
+NandFlash 驱动
+1、基础知识
+48-pin
+	7-pin 控制
+	8-pin 数据-(地址分时复用) 8根bit = 1 byte 
+		SATA = 1根数据-1 bit * 8 clock = 1 byte
+	无地址线
+No Connection (N.C.)
+
+64M * 8bit 
+48-pin TSOP-I (-II)  4510 (QFP)
+
+2、引脚描述 Pin Description
+控制信号：
+CLE：Command Latch Enable 命令锁存使能
+ALE: Address Latch Enable 地址锁存使能
+nCE: Chip Enable 芯片使能（片选）
+nRE: Read Enable 读使能
+nWE: Write Enable 写使能
+nWP: Write Protect 写保护 
+R/nB: Ready/not Busy 闲/不忙
+
+Signal Timing 信号时序图
+读时序
+	1、CLE 使能，发送命令字 00，表示读操作
+	2、ALE 使能，发送4次地址，表示读操作的地址
+	3、等待轮询 R/nB ，直到 再次 Ready，表示数据准备好了 
+	4、nRE 使能，连续进行 N 次读操作，读出所需要的数据。
+
+写时序 （作业）
+
+3、编程模型
+SFR 特殊功能寄存器
+NFCONF：
+NFCONT：
+NFCMMD：
+NFADDR：
+NFDATA：
+	ECC related: 
+NFSTAT:
+	ECC status related:
+NFSBLK:
+NFEBLK:
+
+
+搜索相关参考代码
+1、block & pages
+	1 block = 32 pages
+	1 page = 512 bytes
+	1 block = 16K 
+	1 device = 4096 blocks = 4K blocks 
+	1 device = 4K blocks * 16K /block = 64M
+
+2、读操作为例，基本的流程
+nand_init
+	1. Controller enable
+	2. Nand Chip enable (nFCE)
+nand_read
+	1. 写 NFCMMD = 0x00
+	2. 写 4 次 NFADDR
+	3. 轮询 NFSTAT，看 R/nB
+	4. 读 512 次 NFDATA
+
+
+UDA1341 声卡芯片驱动
+1、IIS 基础知识
+28-pin SSOP28 package 
+模拟信号-Headphone, MicPhone, MK1
+数字信号-Signals 
+IIS Controller (IIS Bus Interface)
+	I2SSDO
+	I2SSDI
+	I2SLRCK
+	I2SSCLK
+	CDCLK
+IIS Bus --> see Chapter 21
+
+GPIO GPB (L3 Bus Interface)
+	GPB2 - L3MODE
+	GPB3 - L3DATA
+	GPB4 - L3CLOCK
+L3 Bus --> GPIO emulate
+
+
+2、引脚描述
+I2SSDO	:	Serial Data Output 数据输出
+I2SSDI	:	Serial Data Input 数据输入
+I2SSCLK	:	Serial Bit Clock 位时钟
+I2SLRCK	:	Left/Right Channel Clock 帧时钟（左右声道合在一起）
+CDCLK	:	CODEC Clock (System Clock) 编解码器的工作时钟 （最快）fs
+
+Signal Timing 信号时序图
+I2SSDO
+I2SSCLK
+I2SLRCK
+
+3、编程模型
+SFR 特殊功能寄存器
+IISCON	:
+IISMOD	:
+IISPSR	:
+IISFCON	:
+IISFIFO	:
+
+
+PCLK = 50Mhz
+
+50Mhz
+------------- = PSR Value
+master clock 
+
+master clock = fs * 256 (384)
+fs = 22Khz
+
+
+UDA1341 声卡芯片驱动
+L3 总线驱动
+1、基础知识
+L3 Bus Interface
+Signals
+L3MODE
+L3DATA
+L3CLOCK
+
+2、手册 UDA1341 
+Timing of L3 bus
+1) Address mode
+void L3_address(char addr)
+
+2) Data transfer mode
+int L3_write_data(char data)
+
+Volume Control
+L3_address(0b00010100 + 0b00)
+L3_write_data(0x0f)
+
+Reset Control
+L3_address(0b00010100 + 0b10)
+L3_write_data(0x01)
+
+
+DMA 驱动
+1. Source (IIS)
+IISFCON - FIFO DMA mode
+IISCON  - Controller DMA
+
+2. DMA self
+SRC - src addr 源地址
+SRCC - increasement 增长
+DST - dst addr 目的地址
+DSTC - fixed 固定
+CON - size, source  传输次数，选择和谁打交道
+TRIG - start (when) 启动
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	

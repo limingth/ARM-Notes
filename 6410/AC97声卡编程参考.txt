@@ -1,0 +1,163 @@
+
+S3C_AC97_GLBCTRL
+cold reset机理：
+
+1.AC_GLBCTRL Reg 设置过程:
+1)cold reset
+AC_GLBCTRL[cold reset] = 1
+cold reset delay > 1usec + 162.8nsec
+AC_GLBCTRL[cold reset] = 0
+
+2)AC-LINK on
+让SYNC信号送往9713 Codec
+
+3)Transfer Data By AC-link En
+
+2.Cold Rest Timing: 
+Refer WM9713 P86
+6410将9713 resetb pin脚拉低：至少1usec，然后resetb pin脚拉高直到BITCLK startup: >162.8nsec
+
+----------------------------------
+warm-reset:
+1)warm-reset timing:
+SYNC 拉高>1.3usec + >162.4ns 直到BIT_CLK开始工作 
+Refer 9713 P87
+
+2.路径配置：
+录音路径：
+LineL/R-->record mux->无20dB->mute->mono mixer   (Mute)
+LineL/R-->record mux->无20dB->18bitADC-->AC 97 Link   (Mute)
+LineL/R-->record mux->无20dB->mute->Headphone Mixer-->这里为录音，mute了    (Mute)--录音 在这
+
+放音的路径：
+AC Link -->18bit DAC-->Headphone Mixer-->HPL/R 
+
+void WM9713_InitPCMOut(SerialDataFormat eFormat, u32 eSampleRate, OPMode eOpmode, PCMWordLength eWordLen, CodecPort eCodecPort)
+{	
+	#ifdef __AC97_H__
+ 	AC97_CodecCmd(WRITE,0x26, 0x4f00);	// Enable PR5(Internal Clock, AC-link I/F)
+	AC97_CodecCmd(WRITE,0x26, 0x4700);	// Enable PR3(VREF, I/P PGA's, DAC's, ADC's, Mixer, O/P's)
+ 	
+	AC97_CodecCmd(WRITE,0x3c, 0xfbff);		// Enable MBIAS generator
+	Delay(1000);
+
+	AC97_CodecCmd(WRITE,0x26, 0x4300);	// Enable PR2(I/P PGA's and mixers)
+	AC97_CodecCmd(WRITE,0x3C, 0xfbf3);		// Enable HPL/R Mixer
+	AC97_CodecCmd(WRITE,0x26, 0x4100);	// Enable PR1(Stereo DAC)
+	AC97_CodecCmd(WRITE,0x3C, 0xfb33);	// Enable DAC L/R
+	AC97_CodecCmd(WRITE,0x26, 0x0100);	// Enable PR6 (O/P PGA's)
+	AC97_CodecCmd(WRITE,0x3E, 0xf9ff);		// Enable PR6 (O/P PGA's)
+
+	AC97_CodecCmd(WRITE,0x2A,0x1);		//Variable Rate Enable	
+	if(eSampleRate==8000)
+		AC97_CodecCmd(WRITE,0x2C,0x1f40);		//DAC Sampling frequency 8kHz
+	else if(eSampleRate==48000)
+		AC97_CodecCmd(WRITE,0x2C,0xbb80);	//DAC Sampling frequency 48kHz
+	else if(eSampleRate==44100)
+		AC97_CodecCmd(WRITE,0x2C,0xac44);		//DAC Sampling frequency 44.1kHz
+	else if(eSampleRate==22050)
+		AC97_CodecCmd(WRITE,0x2C,0x5622);		//DAC Sampling frequency 22.05kHz
+	else
+		Assert(0);
+	AC97_CodecCmd(WRITE,0x12,0x8000);		//Disable ADC because it makes noise when ADC is turn on
+	AC97_CodecCmd(WRITE,0x1c, 0x00a0);	// HPL/R PGA input select HPMIXL/R
+	AC97_CodecCmd(WRITE,0x04,0x0707);		// Set HPL/R Volume 
+	AC97_CodecCmd(READ,0x04,0x00000);	//HP out volume 
+	AC97_CodecCmd(WRITE,0x0c,0x6808);		// Unmute DAC to HP mixer path
+	AC97_CodecCmd(WRITE,0x04,0x0A0A);	// Unmute HPL/R
+	#endif	
+}
+
+case AUDIO_Tx:
+			AC97_CodecCmd(WRITE,0x26, 0x4f00);	//Enable PR5(Internal Clock, AC-link I/F)
+			AC97_CodecCmd(WRITE,0x26, 0x4700);	//Enable PR3(VREF, I/P PGA's, DAC's, ADC's, Mixer, O/P's)
+		 	AC97_CodecCmd(WRITE,0x3c, 0xfbff);		//Enable MBIAS generator
+			Delay(1000);
+			AC97_CodecCmd(WRITE,0x26, 0x4300);	//Enable PR2(I/P PGA's and mixers)
+			AC97_CodecCmd(WRITE,0x3C, 0xfbf3);		//Enable HPL/R Mixer
+			AC97_CodecCmd(WRITE,0x26, 0x4100);	//Enable PR1(Stereo DAC)
+			AC97_CodecCmd(WRITE,0x3C, 0xfb33);	//Enable DAC L/R
+			AC97_CodecCmd(WRITE,0x26, 0x0100);	//Enable PR6 (O/P PGA's)
+			AC97_CodecCmd(WRITE,0x3E, 0xf9ff);		//Enable PR6 (O/P PGA's)
+			if (eSampleRate >= 48000)
+			{
+				AC97_CodecCmd(WRITE,0x2A,0x0);		//Variable Rate Disable	
+				AC97_CodecCmd(WRITE,0x2C,0xbb80);	//DAC Sampling frequency 48kHz
+			}
+			else
+			{
+				AC97_CodecCmd(WRITE,0x2A,0x1);			//Variable Rate Enable	
+				AC97_CodecCmd(WRITE,0x2C,eSampleRate);	//DAC Sampling frequency
+			}
+			UART_Printf("VRA Enable(1)/Disable(0): 0x%x\n",(0x1&AC97_CodecCmd(READ,0x2A,0x0000)));
+			AC97_CodecCmd(WRITE,0x12,0x8000);		//Disable ADC because it makes noise when ADC is turn on
+			AC97_CodecCmd(WRITE,0x1c, 0x00a0);	// HPL/R PGA input select HPMIXL/R
+			AC97_CodecCmd(WRITE,0x04,0x0707);		// Set HPL/R Volume 			
+			AC97_CodecCmd(WRITE,0x0c,0x6808);		// Unmute DAC to HP mixer path
+			AC97_CodecCmd(WRITE,0x04,0x0A0A);	// Unmute HPL/R
+			// codec setting to hear sound while PCM encoding -> need to Modify
+			//uAc97cmd = AC97_CodecCmd(READ,0x14, 0x0000);
+			//uAc97cmd =  uAc97cmd &  ~(3 << 14) & (~ (5 << 11));
+			//AC97_CodecCmd(WRITE,0x14, 0x1612);
+			//AC97_CodecCmd(WRITE,0x1c, 0x00a0);
+			//AC97_CodecCmd(WRITE,0x04,0x0707);
+			//UART_Printf("%x\n",AC97_CodecCmd(READ,0x14, 0x0000));	
+			//UART_Printf("%x\n",AC97_CodecCmd(READ,0x0a, 0x0000));			
+			break;
+Rx: volume
+AC97_CodecCmd(WRITE,0x12,(u16) uVolRegister);	
+Tx: volume
+AC97_CodecCmd(WRITE,0x04,(u16) uVolRegister);	
+
+
+	if(AC97_InitACLINK())
+	{
+		AC97_CodecCmd(WRITE,0x26, 0x4f00);		// Enable PR5(Internal Clock, AC-link I/F)
+		AC97_CodecCmd(WRITE,0x26, 0x4700);		// Enable PR3(VREF, I/P PGA's, DAC's, ADC's, Mixer, O/P's)
+
+		AC97_CodecCmd(WRITE,0x3C, 0xfbff);		// Enable MBIAS generator
+		Delay(1000);
+
+		AC97_CodecCmd(WRITE,0x26, 0x4300);		// Enable I/P PGA's nad Mixers
+		AC97_CodecCmd(WRITE,0x3C, 0xebf3);		// Enable VXDAC, L/R HP
+		AC97_CodecCmd(WRITE,0x26, 0x4100);		// Enable DAC
+		AC97_CodecCmd(WRITE,0x26, 0x0100);		// Enable PR6 (O/P PGA's)
+		AC97_CodecCmd(WRITE,0x3E, 0xf9ff);		// Enable HPL/R output PGA's
+
+		AC97_CodecCmd(WRITE,0x1C, 0x00a0);		// HPL/R PGA input select: HPMIXL/R
+		AC97_CodecCmd(WRITE,0x04, 0x8a8a);		// Set HL/R Volume = -6dB
+
+		AC97_CodecCmd(WRITE,0x2A,0x1);			//Variable Rate Enable	
+		UART_Printf("VRA Enable(1)/Disable(0): 0x%x\n",(0x1&AC97_CodecCmd(READ,0x2A,0x0001)));
+		AC97_CodecCmd(WRITE,0x2E, 0x1f40);		// AUXDAC = 8kHz
+
+		AC97_CodecCmd(WRITE,0x12,0x8000);		//Disable ADC because it makes noise when ADC is turn on
+		AC97_CodecCmd(WRITE,0x18, 0x02aa);		// Unmute VXDAC to HPMIXL/R
+		AC97_CodecCmd(WRITE,0x04, 0x0f0f);		// Unmute HPL/R
+
+		if (eSync == DURING_PCMSYNC_HIGH)			//DURING_PCMSYNC_HIGH = Dsp  Mode B
+			AC97_CodecCmd(WRITE,0x36, 0xa6b3);		// PCM IF=DSP B type, 16Bit, Slave Mode, Fs=8kHz		1010 0110 0110 0011
+		else 															//AFTER_PCMSYNC_HIGH = Dsp  Mode A
+			AC97_CodecCmd(WRITE,0x36, 0xa6a3);		// PCM IF=DSP A type, 16Bit, Slave Mode, Fs=8kHz		1010 0110 0010 0011
+		AC97_CodecCmd(WRITE,0x44, 0x0b80);		// PCM CLK = 8kHz
+		AC97_CodecCmd(WRITE,0x4C, 0xffde);		// GPIO config. For PCM IF (Slave mode) 
+	}
+
+0x26,0x0; (0x4F00)	write addr 0x26 = 0x0
+0: Enable
+
+0x0c, 0x0808;	
+0: No mute
+8: valume control
+
+0x3c, 0xf803; (0xFBFF)
+f: ADC, VMID, Thermal, Voice DAC all disable 
+8: DAC Enable, VREF/PLL disable
+0: Left DAC, Right DAC enable. left/right ADC enable
+3: left right Headphone enable, speak and mono disable
+
+0x3e, 0xb990;
+b:  1011 microphone enable, else disable
+9:  1001 HPL, HPR enable
+9:  1001 LINEL, LINER enable
+0:  MICA, MICB, Mic Pre-amp enable

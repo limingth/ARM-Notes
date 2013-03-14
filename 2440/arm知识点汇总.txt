@@ -1,0 +1,525 @@
+
+team1:张，王，韩
+异常，中断
+
+(memo 4)
+异常分类
+	7种异常
+		RESET
+		SWI
+		UND
+		Prefetch 
+		Data
+		IRQ
+		FIQ
+异常优先级
+异常模式
+	5种异常模式
+		SVC, IRQ, FIQ, UND, ABT
+异常向量表	
+	从0x0开始，4个字节放1个	跳转指令（B/LDR）
+	0x0: RESET	-> SVC
+	0x4: UND	-> UND
+	0x8: SWI	-> SVC
+	..
+	0x14: 保留 nop
+	0x18: IRQ	-> IRQ
+	0x1C: FIQ	-> FIQ
+异常触发：
+	外部中断源触发
+	SWI软中断指令触发
+	UND未定义指令触发
+	存储器失效产生的ABT
+异常响应
+	保存PC->LR_irq
+	保存CPSR->SPSR_irq
+	修改CPSR-> IRQ
+	修改PC-> 向量表入口0x18->PC
+异常处理
+	保存现场，压栈，STMFD sp!, {r0-r12, lr}
+	跳转到异常处理程序 c_handler
+	恢复现场，出栈，LDMFD sp!, {r0-r12, pc}^
+异常返回
+	从SVC模式返回：movs pc, lr 地址返回，模式也返回
+	从IRQ/FIQ模式返回：subs pc, lr, #4
+	
+中断
+	中断源
+		内部Timer, DMA		
+		外部UART, GPIO, USB, MAC
+	中断产生条件
+		中断使能，包括设置触发方式trigger/mode，以及使能中断enable
+		中断控制器，屏蔽位打开 Mask
+		ARM 内核中的 CPSR I-bit （IRQ禁止位）设置为0
+	中断的3层模型
+		最上面 - ARM core
+		中间层 - SoC Interrupt Controller
+		最下面 - Interrupt Sources
+	中断初始化
+		设置IRQ模式下的栈空间 SP_irq, (SP_svc)
+		清除IC中断 Pending bits （写1清0）
+		打开相应屏蔽位 mask bit = 0
+		设置好中断的产生条件（见上面）
+	中断响应
+		见IRQ异常/FIQ异常响应 0x18
+	中断处理程序
+		清除相应的 pending bit ，以防止重复不断的中断
+		SRCPND 和 INTPND 需要按照先后顺序清除，斩草除根
+		最好是在一进入中断的时候，就清除。以防止丢掉处理过程中来的中断。
+
+(memo 1)
+team2:崔，郭，侯
+ARM内核体系结构
+
+ARM处理器的特点
+	ARM指令集，精简指令集，RISC
+	固定32位指令，低功耗，低成本，高性能
+	多数指令都能够在单周期完成	
+	Load/Store 体系 （LDR/STR, LDM/STM）
+	ARM/Thumb 两种工作状态-指令集(32bit/16bit)
+
+ARM体系结构
+	ARM工作模式
+		7种模式
+			USR/SYS, SVC, IRQ/FIQ, UND/ABT
+	ARM寄存器组织
+		31 通用寄存器
+			r0-r7 未分组	8 * 1
+			r8-r14 分组
+				r8-r12	5 * 2
+				r13, r14	2 * 6
+			r15 
+				1 * 1
+		6 状态寄存器	
+			CPSR	1 * 1
+			SPSR 	1 * 5
+	ARM工作状态
+		ARM 	32bit
+		Thumb	16bit 	
+		BX 指令切换
+	ARM指令集
+		3种数据类型	byte, half-word, word
+		6类指令
+	ARM指令与编程
+		ARM指令集分类
+			数据处理指令
+				逻辑，比较，算术
+			跳转指令
+			异常指令
+		ARM指令集的格式
+			条件码 	0xE  1110  无条件执行
+				0x0  0000  EQ
+			指令码
+			操作数 Rn, Rd, imme,
+		ARM编程
+			纯汇编
+				汇编格式
+					TAB开头
+					AREA表示段，CODE, READONLY
+					ENTRY入口
+					顶格写lable: 标号
+					import / export
+					END结束
+				汇编器	armasm
+			汇编+C混合编程
+				汇编调用C
+					import symbol
+					bl function
+					b c_entry	
+				C调用汇编
+					__asm
+					{
+
+					}
+			纯C编程
+				用main函数？可以不用
+				程序入口，从哪里进入？ 
+				函数栈的初始化，sp=?
+				少用为妙，基本上都是 汇编跳转到C
+	
+team3: 卢，曹，柳
+UART驱动，
+
+(memo detail 4)		
+UART驱动
+	串口UART的signal description引脚（信号）描述
+		RxD/TxD, GND
+		CTS/RTS, UEXTCLK
+	串口时序（发送TxD，接收RxD）
+		首先TxD处于高电平，则为空闲状态
+		有数据要发送时，拉低，
+		发送起始位
+		发送数据位
+		发送校验位（可选）
+		发送停止位
+		拉高，回到空闲状态
+	串口的帧结构
+		SIO Frame
+		start bit + data bits + stop bit (+ parity bit)
+		1 bit + 8 bit + 1 bit
+	串口的波特率
+		设置好波特率因子，代入公式进行计算
+	串口的工作模式
+		轮询 + 中断
+		轮询：判断串口发送/接收状态寄存器的某个位（发送/接收的允许位）
+	串口的内部结构框图
+		Transmit/Receive Buffer(FIFO - 64byte)数据缓冲器
+		Transmit/Receive Shifter移位器
+		TxD/Rxd 数据信号线
+		BaudRate Generator 波特率发生器
+		Control Unit 控制单元
+	串口的编程
+		初始化设置
+			ULCON0 - 数据位，停止位，校验位
+			UCON0 - 时钟选择，工作模式（轮询和中断）
+			UFCON - FIFO 设置
+			UMCON - Modem 设置
+			UBRDIV0 - Baudrate 设置
+		写操作
+			UTRSTAT0 - 标识当前状态				
+			UTXH0 - 数据发送寄存器
+				先读状态，如果允许发送，则写入UTXH0，反之则继续轮询
+		读操作
+			UTRSTAT0 - 标识当前状态				
+			URXH0 - 数据接收寄存器
+				先读状态，如果允许接收，则读取URXH0，反之则继续轮询
+	
+team4: 张，冷，翟
+存储器，GPIO驱动，SDRAM驱动
+
+(memo 3)
+存储器
+	分类 	SRAM，DRAM，SDRAM，
+		ROM：MASK ROM, PROM, EPROM, EEPROM, FLASH
+			Nand Flash
+			Nor Flash
+	性能异同
+		SRAM
+			内部集成，存储小(?K)，掉电易失，价格昂贵
+			总线方式进行访问（地址线，数据线，控制线）
+				地址线：n根，决定寻址范围 2^n
+				数据线：8/16/32，决定着一次寻址所能获得的数据大小
+				地址线和数据线，合在一起决定了存储空间大小
+				控制线：nCS（片选），WE（写使能），OE（读使能/output）
+				时序：地址线 -> 数据线
+		SDRAM
+			集成芯片形式，存储大(?M)，掉电易失，价格便宜
+			总线方式进行访问（地址线，数据线，控制线）
+				复用地址线：n根（比SRAM少），决定最大寻址范围 2^n*2^n= 2^(2*n) 行*列
+					BA0，BA1：内部的Bank片选
+				数据线：8/16/32，决定着一次寻址所能获得的数据大小
+				（复用）地址线和数据线，合在一起决定了存储空间大小
+				控制线：nSCS（片选），nSRAS（row行地址选中）, nSCAS（col列地址选中）
+					WE（写使能），
+					SCLK（时钟），
+					SCKE（时钟使能）
+				时序：BA0，BA1内部bank片选 -> 行地址 -> 列地址 -> 数据			
+		Nand Flash
+			集成芯片形式，存储大(?M/G)，掉电不失，价格便宜
+			IO方式进行访问（无地址线，有数据线，有控制线）
+				数据线：8位数据线(DATA0--DATA7) - (IO0-IO7)
+				控制线：CLE （命令锁存使能）
+					ALE （地址锁存使能）
+					nFCE （芯片使能）
+					nFRE （读使能）
+					nFWE （写使能）
+					FRnB （就绪/忙 ready/busy）
+				时序：先命令锁存，发命令字，再地址锁存，发地址4次，等待Ready，连续读/写512次数据
+		Nor Flash
+			集成芯片形式，存储小(1-16M)，掉电不失，价格较贵
+			EIP：Excute In Place 程序能够直接在NorFlash上执行，不用加载到RAM中
+			不足之处在于：无法直接写入，靠写时序才能program
+			读NorFlash像读SRAM，写NorFlash像写NandFlash
+			读时候，总线方式，地址线->数据线
+			写时候，IO方式，命令字->地址4次->等待->写入n次
+
+(memo detail 1)	
+GPIO驱动
+	S3C2440芯片 GPIO，分组
+		130个GPIO，分9组，A-J
+		
+	GPIO的工作模式
+		GPA 25根都是功能态，其他都是既有功能态也有I/O
+		
+	GPIO的初始化
+		作为IO功能使用的时候，主要涉及两个参数
+			设置输入输出的方向
+			设置输出的数据 或者 读取输入的数据		
+	GPIO的编程	
+		GPXCON - 设置 input/output/functional
+			当设置CON为复用功能态时，则需要设置其他寄存器配合工作
+		GPXDAT - 数据值（可读可写）
+		写1 - GPXDAT |= 1<<n
+		写0 - GPXDAT &= ~(1<<n)
+
+(memo detail 2)	
+SDRAM驱动
+	SDRAM 芯片结构
+		两片SDRAM大小都是32M，
+		连接方式地址线: cpu A2 -- sdram A0 (why? 因为数据线的宽度实际上是32位4个字节，所以A0,A1都是0)
+			数据线: cpu D0-D15 -> sdram0 D0-D15
+				cpu D16-D31 -> sdram1 D0-D15
+		需要定时刷新，避免数据丢失		
+	初始化设置
+		初始化2个寄存器
+		总线宽度：32bit
+		控制寄存器：bank6 colomn address number			
+	编程中的实现
+		BWSCON - DW6:10 = 32-bit
+		BANKCON6 - SCAN:01 = 9-bit Column address number
+		
+	
+team5: 何，占
+ARM总线，CLOCK初始化
+
+S3C2440存储
+	SDRAM 自动刷新 nGCS6 
+	总线设置
+	BWSCON：
+		WS6：	Wait 位
+		ST6：	UB/LB
+		DW6：	宽度
+	
+	BANK6CON：
+		MT：15-16	11 = Sync. DRAM
+		RAS to CAS delay：	00 = 2 clocks
+		Column address number：	01 = 9-bit
+
+	REFRESH：
+		REFEN：1 = Enable (self or CBR/auto refresh)
+		SDRAM RAS pre-charge Time：	01 = 3 clocks
+		Refresh Counter：	Refresh period = (211-refresh_count+1)/HCLK
+	
+	BANK0-BANK5 何用？
+	
+	Memory Controller
+		8 * 128M = 1G	8 banks
+		bank0 - bank7, 其中 bank6, bank7 用于 SDRAM，大小可编程
+		0x00000000 - 0x08000000: nGCS0片选，接SRAM
+		0x08000000 - 0x10000000: nGCS1未用到
+		...
+					nGCS3: CS8900 网卡
+					nGCS4: DM9000 网卡
+					nGCS5: CF 卡
+					nGCS6: SDRAM 2片
+		0x38000000 - 0x40000000:  nGCS7: 未用到
+	控制特性：大小端
+			CP15 协处理器改变
+
+(memo detail 3)	
+CLOCK初始化：
+	MPLL： 主要的锁相环	（UPLL：USB的锁相环）
+	设置寄存器 MPLLCON:
+		MDIV, PDIV, SDIV
+		12.0000MHz 304.00 MHz 68(0x44) 1 1	
+	输出 FCLK = 304M （6:2:1）
+	进行分频设置 CLKDIVN：		
+		HDIVN PDIVN
+		HCLK = 100M
+		PCLK = 50M
+
+总线Bus Controller
+	AHB 总线：采用HCLK时钟，连接系统高速设备
+		例如CAM，Memory Controller，Interrupt Controller，DMA
+	
+	APB 总线：采用PCLK时钟，连接系统低速设备
+		例如GPIO，RTC，Watchdog，SPI，UART，IIS，IIC
+	
+team6: 高，邢，白
+寄存器，工作模式
+	
+(memo 2)	
+寄存器
+	r0-r3: 一般用作函数调用时传递形参，数量不多于4个
+	r4-r11: 一般用作保存局部变量
+	r13: 也叫SP，用于栈指针
+	r14: 也叫LR，连接寄存器，用于保存BL跳转时的返回地址
+	r15: 也叫PC，程序计数器，用来保存预取指令时的地址
+	CPSR: 程序状态寄存器，
+		f：前5位，N,Z,C,V,Q 用来指示运算结果进位，借位，溢出等
+		s：预留
+		x：预留
+		c：后8位，分为 I, F, T, MODE[4:0]
+			I: IRQ 禁止位
+			F：FIQ 禁止位
+			T：Thumb 指令状态（16bit）
+			Mode： 工作模式位
+				其中常用的 	SVC : 0x10011
+						IRQ : 0x10010
+						USR : 0x10000
+工作模式
+	分为特权(SYS/SVC/IRQ/FIQ/UND/ABT)，非特权分类(USR)
+	分为异常模式(SVC/IRQ/FIQ/UND/ABT)，非异常模式(USR/SYS)
+
+(memo detail 5)	
+team7: 蒋，宋，张
+异常SWI软中断，中断按钮实现
+
+SWI软中断：
+	异常向量表：0x8 入口，设置跳转 b swi_handler
+	向量表静态实现：
+		注意事项： 编译连接最后，指定ro-base 0x0代表从0地址开始
+		b reset_handler
+		nop
+		b swi_handler
+		nop
+		...
+	入口的动态修改：
+		做一个函数，install_swi_handler
+		int * p1 -> 0x8
+		int * p2 -> 0x38
+		*p1 = 0x???????? ( ldr pc, [pc, (38-8-8)]  )
+			0xE59FF028
+		*p2 = my_asm_swi_handler
+	
+	初始化环境：
+		设置当前工作模式进入 USR 模式
+		在 USR 下，进行 SWI ，才能从 USR -> SVC
+		还需要设置 USR， SVC模式下的 SP 栈指针
+		
+	发生异常后：
+		跳转到0x8，执行 ldr 指令
+		进入到 my_asm_swi_handler 函数
+		进行异常处理
+			保存异常现场	STMFD		
+			跳转到 C_handler			
+			恢复异常现场	LDMFD 
+			异常返回（lr->pc, spsr->cpsr）
+
+中断按钮实现
+	增加了寄存器初始化
+	0、按键端的寄存器初始化
+		GPBCON (GPB8, GPB9)
+	1、按键端的中断使能位
+		GPFCON (GPF0)
+	2、设置中断源的触发方式（下降沿）
+		EXTINT0
+	3、设置中断控制器中的 PND寄存器，包括 SRCPND, INTPND
+		SRCPND = 0xFFFFFFFF
+		INTPND = 0xFFFFFFFF
+	4、设置中断控制器中的 屏蔽寄存器, INTMSK
+		INTMSK &= ~(1<<0)
+	5、设置中断控制器中的 模式寄存器, INTMOD
+		INTMOD = 0 (IRQ异常)
+	6、最后通过内嵌汇编，修改 CPSR I-bit， 打开 I位，允许IRQ异常
+		__asm{ ... }
+		
+	中断处理部分：
+		1、要清除，否则重复不断进行中断
+		2、要按顺序清除，否则会发生2次中断
+		3、要一开始就清除，否则会丢失处理过程中发生的同类中断	
+
+	中断handler处理时：
+		需要注意事项： LR 要减去4，才能作为返回地址
+		
+		
+(memo 5)	
+team8: 郭，徐
+bootloader实现流程
+	
+1、初始化流程
+	系统环境初始化
+		设置SP，设置到SRAM最高处 0x1000 (0-4K)
+	硬件初始化
+		看门狗关闭
+			WTCON
+		蜂鸣器关闭
+			GPBCON
+			GPBDAT		
+		clock时钟初始化
+			MPLLCON
+			CLKDIV		
+		增加调试手段
+		GPIO初始化：LED
+			CPLD_LED: 
+			#define CPLD_LED  *(volatile unsigned char *)0x20800000
+		UART初始化：putchar
+			uart0_init
+			uart0_putchar
+			uart0_getchar		
+		SDRAM初始化
+			BWSCON 
+			BANK6CON：
+			REFRESH：
+		NandFlash初始化
+			NFCONF: pagesize, timing, BusWidth
+			NFCONT: enable
+		自拷贝实现
+			从NandFlash的0地址，拷贝到SDRAM的0x31100000
+			Kernel: 加载到 0x30008000
+		
+2、命令实现部分
+		Shell 实现		
+		命令解析模块		
+		实现命令： 
+			help
+			memread
+			memwrite
+			load
+				xmodem协议实现
+					1、首先接收方发送 NAK
+					2、然后等待发送方回复 ACK
+					3、发送方开始发送数据帧 132 byte 
+						1SOH + 2byte + 128bytes data + 1byte
+					4、接收方接收1个字节
+						if SOH, then get 2 byte(序号), 接收128byte数据，最后接收1byte校验, 回复 ACK
+						if EOT, then 回复 ACK
+					5、重复3、4
+			go
+			nand write
+				nand write from_sdram_addr  to_nand_addr size
+				写时序：
+					先写 	NFCMMD = 0x0
+					再写 	NFADDR =
+						NFADDR =
+						NFADDR =
+						NFADDR = 
+					然后	while() ; 等待
+					最后	for(0-511) NFDATA = 					
+			nand read
+				nand read to_sdram_addr  from_nand_addr size
+			nand erase
+team9: 刘，李，侯
+
+ARM指令集分类
+	数据处理指令
+		mov/mvn
+			mov r0, r1	(LSR, LSL)
+			mov r0, #0xFF
+			mov r0, #0xFFF	(非立即数，无法直接mov)
+				ldr r0, =0xFFF
+		add/sub
+			add r0, r1, r2
+			sub r0, r1, #4
+			mul
+		and/orr
+			...
+		bic
+				
+	跳转指令
+		b
+		bl
+		bx
+		ldr pc, ???
+		
+	访存指令
+		ldr/str
+		ldm/stm
+		ldrb/ldrh strb/strh		
+	
+	模式相关，或者操作系统相关指令	
+	异常指令
+		SWI 
+	状态寄存器访问指令
+		MSR/MRS
+	-------------------------------------------	
+	协处理器指令
+		MCR/MRC p15	
+	信号量指令
+		SWP
+	断点指令
+		BKPT
+	
+DMA实现，DMA中断
+
+

@@ -1,0 +1,460 @@
+课题提问：
+1、bootloader 如何实现
+2、作用，功能，干什么，启动了哪些不可见的，有必要吗
+3、给一个板子，上面能够跑什么应用
+4、shell如何实现
+5、引脚，424pin如何连接，功能如何实现
+6、6410内部的组成结构，包含哪些模块
+7、ARM core 是什么，有什么，做什么用？(what is, what is in it, What can it do?)
+8、ARM 指令集
+9、ARM 汇编程序
+10、ARM 寄存器
+11、ARM 工作模式和分类
+12、MMU和Cache
+13、Bus in 6410 (data, addr, ctrl, chip select, enable, clock, ready/busy, RE, WE)
+14、外设 (寄存器，时钟，引脚，时序)
+15、存储体系 (SRAM, SDRAM, NorFlash, NandFlash)
+16、PLL和时钟，如何编程
+17、watchdog，DMA 如何实现
+18、Timer，Interrupt 如何实现
+
+课表安排:
+-----------------------------------------------
+ARM 基础理论和编程
+day 1: 上午	ARM 嵌入式硬件概述
+day 1: 下午	ARM ADS 开发工具
+day 2: 上午	ARM 体系结构概述
+day 2: 下午	ARM 指令集
+day 3: 上午	ARM 异常处理
+day 3: 下午	ARM 芯片手册导读
+day 4: 上午	ARM 编程实践(GPIO)
+day 4: 下午	ARM 编程实践(GPIO)
+-----------------------------------------------
+ARM Bootloader 项目实践
+day 5: 上午	UART工作原理和实现
+day 5: 下午	stdio 标准输入输出实现
+day 6: 上午	shell 用户命令行解析
+day 6: 下午	command 用户命令实现
+day 7: 上午	xmodem 协议分析
+day 7: 下午	bootloader 项目总结
+-----------------------------------------------
+ARM 中断理论和实践
+day 8: 上午	ARM 中断理论
+day 8: 下午	ARM 中断编程(按键中断实现)
+day 9: 上午	Timer 定时器中断实现
+day 9: 下午	UART 中断实现
+day 10: 上午	DMA 理论
+day 10: 下午	DMA 编程实践
+-----------------------------------------------
+
+day 1: 上午	ARM 嵌入式硬件概述
+板子-->
+芯片(引脚)-->
+6410 block diagram
+	Processor Core
+		MMU, CACHE, CP15,AMBA BUS
+	BUS
+		AXH  APB
+	Peripheral
+		MEMC, Clock&Power,GPIO, UART, Timer, DMA, NANDFLASH, SPI, IIS, IIC, USB, LCD, AC97
+				
+
+day 1: 下午	ARM ADS 开发工具
+ADS、AXD 安装
+PDF 文档目录
+Bin 工具目录
+	armasm 	-> asm
+	arrmcc 	-> gcc (-c, -o)
+	armlink	-> ld
+			-ro-base
+			-rw-base
+			-entry
+			-first
+			__main vs main
+	fromelf	-> objcopy, objdump
+			-bin
+			-c ,-d ,-a
+	make.exe -> make
+
+汇编 		as	armasm
+编译		gcc 	armcc
+		g++	armcpp
+链接		ld 	armlink
+		*.o	*.o
+可执行文件	*.elf	*.axf
+做库文件	ar	armar
+二进制工具	objcopy	fromelf -bin
+		objdump fromelf -c
+
+day 2: 上午	ARM 体系结构概述
+1、ARM 体系结构的特点(说出至少3个)
+2、什么是RISC？
+3、load/store体系指的是什么？
+4、什么叫conditional execution？
+5、ARM 体系结构最突出的优势是什么？
+
+ARM 体系结构 (ARM Architectur Refence Manual.pdf)
+1、工作模式 (7种)
+       usr, sys, svc, irq, fiq, und, abt
+
+2、寄存器组织 (37个)
+r0 - r7 : 8个*1组 - 8个
+r8 - r12: 5个*2组 - 10个
+r13- r14: 3个*6组 - 12个
+PC:	1个*1组 - 1个
+CPSR:	1个*1组 - 1个
+SPSR:	1个*5组 - 5个
+比较重要的：R13(sp), R14(lr), R15(pc), cpsr
+
+day 2: 下午	ARM 指令集
+3、指令集 (Assembly Guide.pdf)
+汇编语言格式 (TAB, AREA, END)
+汇编指令格式
+	条件执行，操作数，寄存器编号，S位等
+	常用指令：
+		MOV, ADD, SUB, B, BL
+	mov r0, pc(三级流水线)
+		用途 [B指令构造0xEA000000, LDR指令构造0xe59ff000([pc, #000])]
+	STR (字节B, 半字H, 多寄存器STM)
+	LDR (字节B, 半字H, 多寄存器STM)
+
+汇编指令分类：
+数据处理 mov, add, sub
+跳转 b, bl
+访存 ldr, str, 
+栈指令 ldm, stm
+
+特权指令： 对状态寄存器的访问指令 msr, mrs
+异常产生指令:	软件中断指令 SWI
+特权指令：对协处理器操作的指令 mcr, mrc
+信号量指令：SWP
+
+day 3: 上午	ARM 异常处理
+异常处理 
+异常分类，异常模式，swi, 未定义指令 0xE7FF0010
+异常触发，异常硬件响应，
+软件异常向量表，异常处理程序handler，
+现场保存和恢复，异常返回（模式和地址同时返回，movs pc, lr)
+
+异常模式切换
+	USR  ---SWI---> SVC
+	
+MSR(读)  MRS(写)  为特权指令
+除了USR模式以外均可以改变自己的工作状态
+		            |SWI 0x01
+(SUB, LDR, BIC)LR_SVC <-----|SWI 0x02
+
+异常分类（7种)，异常向量表(0, 0x08, 0x18...)
+异常触发，异常发生后的硬件响应(保存pc->lr, cpsr->spsr)
+向量表中的跳转指令 handler
+Hanlder
+	1.压栈，保存现场
+	2.异常处理程序
+	3.出栈，恢复现场
+	4.异常返回(同时)  movs pc, lr
+
+day 3: 下午	ARM 芯片手册导读
+
+6410芯片手册阅读
+
+一、OverView 
+1、Table of Contents - ***	
+	芯片手册目录结构
+2、Product Overview - ***	
+	芯片的概述
+3、Features - ***	
+	芯片的功能特点
+4、Block Diagram - ******
+	芯片的内部组织结构框图
+4.1 ARM core
+	芯片所选用的ARM内核版本(ARM7TDMI, ARM920T, ARM1176JZF-S)
+4.2 Peripheral
+	芯片内部所支持的外设控制器
+4.3 Bus(AHB, APB, AXI bus)
+	芯片内部连接ARM内核与外设控制器的总线
+5、(Peripheral/Device) Controllers - ****
+	外设控制器的详细描述章节
+6、Pin Assignments - *
+	引脚的赋值（定义)- 289-FBGA, 424-Pin FBGA
+7、Pin Number - Pin Name - *
+	引脚的序号（名称)
+8、Default Function - ***
+	引脚默认功能 （引脚功能是可以多种选择的，其中有一个是默认的，其他的功能是复用这个引脚的)
+9、Signal Descriptions - *****
+	（引脚的)信号描述
+	分类描述 （每一个 controllers 都负责管理其中一部分自己的引脚，有多少，方向，功能作用，复用种类和排序)
+10、Special (Function) Registers - *******
+	SFR 特殊功能寄存器 （每一个 controllers 都有一批自己的寄存器，读写操作就可以用来进行软件编程和控制)
+	多则20多个，少则5, 6个
+10.1 Register Name
+	全大写，未来用来宏定义的，前面部分是这个Controller的缩写，后面部分就是它的功能)
+	CON - control 控制
+	STAT - status 状态
+	DAT - data 数据
+	MOD - mode 模式
+	FIFO - fifo 缓冲寄存器
+	CFG - config 配置
+	CNT - counter 计数
+	TXH - transmit Holder 发送缓冲
+	RXH - receive Holder 接收缓冲
+	BRDIV - baud divisor 波特率分频因子
+10.2 Register Address
+	这个地址，是在写代码的时候，所对应操作的寄存器的唯一标识。
+	名字只是用来帮助记忆的，不是内部标识，也不是用来给编译器的。
+
+二、Memory Controller
+1、Memory - 存储布局  *******
+	(System) Memory Map 
+	(系统)内存映射图表 （芯片所支持的内存空间的起始地址和结束地址，内存空间大小)
+
+	寻址空间： Bank （一段连续的内存地址，通常会外接到一个存储器件芯片上，通常有一个Size)
+	这些存储器件可以包括 ROM 和 RAM (SRAM，NorFlash， SDRAM，NAND Flash)
+2、boot ROM - *****
+	启动0地址所在的器件（内存芯片)，决定启动代码的执行。
+	Operation Mode: (OM[xx]) 启动时操作模式
+
+	6410： XOM[4:0]
+	2440： OM[1:0]
+3、Memory Interface - *****
+	存储器件的接口（SOC芯片和外部存储器件的连接关系)
+4、Memory SFR - ****
+	与Memory有关的寄存器配置
+
+三、Clock Management
+时钟管理
+clock generator block diagram: 时钟发生器内部结构框图 - ****
+1、供给CPU外部晶振的时钟频率
+	external crystal: 外部晶振 XXTIpll
+	12MHz 12M赫兹
+2、锁相环进行倍频
+	PLL: MIDV，PDIV，SDIV
+	PLLCON: 寄存器
+	APLL_CON: 0xC10A0301
+	MPLL_CON: 0xC10A0301
+	CLK_DIV0: 0x01043310
+	CLK_DIV2: 0x00030000
+	CLK_SRC:  0x00002007	bit[2:0]
+	计算公式和查询表
+3、分频之后给各个不同的部件
+	Divider: 
+	DIVN: 分频参数
+4、输出
+	ARMCLK/FCLK: ARM core 内核
+	HCLK: AXI/AHB 高速设备
+	PCLK: APB 外设
+	SCLK: 特殊
+
+四、Power Management
+电源管理
+
+day 4: 上午	ARM 编程实践(GPIO)
+五、Device 外设
+1、I/O  （led, beep, button, pwm, seg7, motor, switch)
+OverView - ***
+how many, multi-functional, input/output
+Ports: Number of Pins : Muxed Pins : *****
+EINT : External Interrupt : ***
+Features: **
+Block diagram: *****
+Register Description: *******
+Memory Map: 0x7F008000 - 0x7F008288 (0x288 / 4 = 10 1000 1000 = 0xA2 = 162)
+Reset Value: ***** 芯片加电时候的默认值
+SFR
+GPXCON: 初始化时配置input/output方向，同时也可以
+GPXDAT: 运行时设置它的高低电平(1/0), 或者读取它的状态(1/0)
+GPXUP: 引脚的上拉/下拉状态
+
+用.s实现GPIO编程led, beep, button
+用.c实现GPIO编程led, beep, button
+	1.main去掉   mymain
+	2.delay() 引发链接参数 -first
+	3.start.s   调整到C之前初始化sp
+
+day 4: 下午	ARM 编程实践(GPIO)
+用.s + .c实现较为复杂的应用程序
+
+ARM Bootloader 项目实践
+day 5: 上午	UART工作原理和实现
+编程实现函数接口（getchar, putchar)
+2、UART 
+OverView: ****
+Features: **
+Block Diagram: ******
+Description: ***
+1) Data Transmission: *****
+2) Data Reception: *****
+3) Auto Flow Control: **
+4) RS-232C INTERFACE: ****
+5) INTERRUPT/DMA REQUEST GENERATION: ***
+6) UART ERROR STATUS FIFO: **
+7) INFRA-RED (IR) MODE: *
+8) Serial I/O Frame Timing Diagram: *****
+9) Functional Pins Description(External Interface): *****
+Register Description: *******
+SFR: Memory Map: 0x7F005000 - 0x7F005C38
+[control register]
+ULCON0
+UCON0
+UFCON0
+UMCON0
+[status register]
+UTRSTAT0
+UERSTAT0
+UFSTAT0
+UMSTAT0
+[data register] - data, buffer, fifo, data-holding, 
+UTXH0
+URXH0
+[baud rate related]
+UBRDIV0
+UDIVSLOT0
+[interrupt related]
+UINTP0
+UINTSP0
+UINTM0
+
+day 5: 下午	stdio 标准输入输出实现
+编程实现函数接口(gets, puts, putcharx, putx)
+
+day 6: 上午	shell 用户命令行解析
+编程实现函数接口(shell_parse, shell_cmd)
+
+day 6: 下午	command 用户命令实现
+编程实现函数接口(cmd_help, cmd_md, cmd_set, cmd_loadb, cmd_go)
+
+day 7: 上午	xmodem 协议分析
+编程实现函数接口(cmd_xmodem)
+
+day 7: 下午	bootloader 项目总结
+
+
+day 8: 上午	ARM 中断理论
+数据手册导读 (S3C4510, S3C2440, S3C6410)
+和中断有关的重要概念
+中断源外设：Interrupt Source
+enable: 使能中断
+trigger: 设置中断方式
+中断控制器: Interrupt Controller
+Mode: 设置模式 (IRQ/FIQ)
+Mask: 设置屏蔽 (masked/unmask)
+Pend: 悬挂标志 (clear/before mask/after mask)
+Prio: 优先级 
+Offset: 最高优先级中断偏移
+
+day 8: 下午	ARM 中断编程(按键中断实现)
+中断源寄存器: GPIO Controller Regs
+1) GPNCON : 	[1:0] 	10 = Ext. Interrupt[0]	设定引脚的功能复用方式，改input为interrupt
+2) EINT0CON0 :	[2:0]	01x = Falling edge triggered   设置引脚触发中断的方式(下降沿)
+3) EINT0MASK :	[0] 	0 = Enable Interrupt 	设置引脚的中断屏蔽位(打开不屏蔽)
+4) EINT0PEND :  [0] 	1= Occur interrupt 	 1. Each bit is cleared by writing "1"      
+中断控制器寄存器: Interrupt Controller Regs
+5) VIC0INTSELECT: 	0 = IRQ interrupt (reset)	确定(设置)中断发生后触发的异常模式为 IRQ
+6) VIC0INTENABLE:	1 = interrupt enabled.		使能这个中断源能够产生中断向上传递
+7) VIC0VECTADDR[0]:	Contains ISR vector addresses. 
+8) VIC0VECTPRIORITY[0]:	
+9) VIC0ADDRESS:		Contains the address of the currently active ISR	
+10) VICxIRQSTATUS:
+中断处理程序 irq_handler 实现技巧
+0x18:    e59ff000            ldr  r15, [r15,#0]
+0x1c:
+0x20:    0x50000128 (beep函数地址)
+中断模型层次结构图
+ARM Core  I-bit 	ARM内核
+--------------------------------------------
+VIC0IRQSTATUS (INTPND)
+VIC0INTENABLE (INTMSK)
+VIC0RAWINTR (SRCPND)	中断控制器
+--------------------------------------------
+EINT0MASK
+EINT0PEND
+EINT0CON0		中断源
+--------------------------------------------
+
+day 9: 上午	Timer 定时器中断实现
+4、Timer (gettime irq)
+外设寄存器设置
+TCFG0 : 分频
+TCNTB0 : 计数-Interrupt
+TCMPB0 : 比较-Tout0
+TCON : 使能定时器
+TINT_CSTAT : 使能中断
+中断控制器相关
+VIC0INTENABLE = 1<<23;	: 中断控制器层次使能该中断源
+代码示例:
+	TCFG0 = 199;	
+	TCNTB0 = 65535;
+	TCMPB0 = 60000;
+	TINT_CSTAT = 1<<0;
+ 	TCON   = (1<<1);   // 手动更新
+	TCON   = 0x0d;     // 自动加载，清“手动更新”位，启动定时器0
+
+day 9: 下午	UART 中断实现
+待总结
+
+day 10: 上午	DMA 理论
+5、DMA (解放cpu)
+1) secure DMAC(SDMAC) or general DMAC(DMAC).
+SDMA_SEL
+2) Select a free DMA channel 
+3) Clear any pending interrupts 
+4) DMACCxSrcAddr : Write the source address
+DMACCxSrcAddr: SrcAddr [31:0] R/W DMA Source address 
+5) DMACCxDestAddr : Write the destination address
+DMACCxDestAddr: DestAddr [31:0] R/W  DMA destination address 
+6) DMACCxLLI : Write the address of the next LLI 
+DMACCxLLI: LLI [31:2] R/W Linked list item. Bits [31:2] of the address for the next LLI.
+7) DMACCxControl0:  Write the control information 
+DMACCxControl: 
+DI [27] Destination increment. 
+SI [26] Source increment. 
+DMACCxControl1: TransferSize [24:0]
+
+8) DMACCxConfiguration : Enable bit : Write the channel configuration information
+DMACConfiguration: 1 =enabled. 
+This bit is reset to 0. Disabling the DMA controller reduces power consumption. 
+
+day 10: 下午	DMA 编程实践
+编程参考
+// Enable DMA Controller
+DMACConfiguration[0] = 1
+// Clear Interrupt Reuest - do NOT write these 2 regs
+DMACIntTCClear[x] = 1
+DMACIntErrClr[x] = 1
+
+// Setup DMA Interrupt Handler
+ICVECTADDRx = address of Handler
+// Enable DMA Interrupt
+VICxINTENABLE[y] = 1
+// Setup DMA LLI Features to DRAM
+If transferring as LLI mode
+Set Source Address,
+Set Destination Address,
+Set Next address of LLI Item,
+Set Control0 register,
+And Set Control1(Transfer Size) register
+
+// Setup DMA Channel Control Reg
+Set Src/Dst increment,
+Set LLI register,
+Select Src/Dst Master as SPINE/P
+Set Src/Dst Transfer Width,
+Set Src/Dst Burst Size, 
+And set Transfer size
+
+// Setup DMA Channel Src/Dst Address
+DMACC0SrcAddr = SrcAddr
+DMACC0DstAddr = DstAddr
+
+// Setup DMA Channel Configuration Regist
+Set Flow control,
+And Set Src/Dst Request number
+
+// Start DMA Channel
+DMACC0Configuration[0] = 1
+
+后继学习指南
+6、NandFlash (实现固化)
+7、AC97 (声卡播放音乐)
+8、LCD (驱动液晶显示图片)
+9、TS (触摸屏用户输入)
+10、DM9000 (网卡网络通信)
